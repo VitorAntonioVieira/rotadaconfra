@@ -18,14 +18,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: rotadaconfra-app
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3009}:3009"
+    networks:
+      - default
+      - proxy-net
     environment:
-      PORT: 3000
+      PORT: 3009
       DATABASE_URL: ${DATABASE_URL:-postgres://rota:rota_secret@db:5432/rota_da_confra}
       ACCESS_CODE: ${ACCESS_CODE:-confra2026}
       SPS_OFFICE_LABEL: ${SPS_OFFICE_LABEL:-Escritório SPS (Jardim Limoeiro, São José dos Campos - SP)}
@@ -34,3 +38,7 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  proxy-net:
+    external: true
