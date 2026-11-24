@@ -7,6 +7,8 @@
     editToken: 'rota_confra_edit_token',
   };
 
+  const POLL_INTERVAL_MS = 10000;
+
   const state = {
     accessCode: localStorage.getItem(STORAGE_KEYS.accessCode) || '',
     myId: localStorage.getItem(STORAGE_KEYS.participantId) || '',
@@ -16,7 +18,7 @@
       lat: -23.237,
       lng: -45.9087,
     },
-    direction: 'outbound',
+    activeTab: 'outbound', // 'outbound' | 'return' | 'mine'
     roleFilter: '',
     onlyWithSeats: false,
     noDrinkOnly: false,
@@ -24,7 +26,10 @@
     participants: [],
     stats: null,
     referenceSource: 'none',
+    pendingReceivedCount: 0,
+    myRides: null,
     isEditing: false,
+    modalOpen: false,
     outboundGeo: { isOffice: false, label: '', lat: null, lng: null },
     returnGeo: { label: '', lat: null, lng: null },
   };
@@ -33,31 +38,40 @@
     offer: 'Oferece carona',
     need: 'Precisa de carona',
     split: 'Dividir app',
+    none: 'Não participa',
   };
 
   const PARTY_LABELS = {
     no_drink: 'Não vai beber (motorista)',
-    will_drink: 'Vou beber (apenas ida)',
+    will_drink: 'Vou beber na festa',
     no_preference: 'Sem preferência',
   };
 
   const ICONS = {
     mapPin:
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
     navigation:
       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>',
     message:
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
     check:
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    x:
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     edit:
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
     plus:
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
     search:
       '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
     users:
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    send:
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
+    clock:
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    car:
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>',
   };
 
   // DOM References
@@ -73,11 +87,16 @@
     headerProfileBtnLabel: document.getElementById('header-profile-btn-label'),
     myStatusCard: document.getElementById('my-status-card'),
     statsRow: document.getElementById('stats-row'),
+    listFiltersWrap: document.getElementById('list-filters-wrap'),
     referenceCaption: document.getElementById('reference-caption'),
     participantsList: document.getElementById('participants-list'),
+    myRidesPanel: document.getElementById('my-rides-panel'),
 
     tabOutbound: document.getElementById('tab-outbound'),
     tabReturn: document.getElementById('tab-return'),
+    tabMine: document.getElementById('tab-mine'),
+    pendingBadge: document.getElementById('pending-badge'),
+
     roleFilterBtns: Array.from(document.querySelectorAll('[data-role-filter]')),
     filterOnlySeats: document.getElementById('filter-only-seats'),
     filterNoDrink: document.getElementById('filter-no-drink'),
@@ -98,17 +117,29 @@
     profileForm: document.getElementById('profile-form'),
     inputFullName: document.getElementById('input-full-name'),
     inputPhone: document.getElementById('input-phone'),
-    seatsField: document.getElementById('seats-field'),
-    inputSeats: document.getElementById('input-seats'),
-    seatsDec: document.getElementById('seats-dec'),
-    seatsInc: document.getElementById('seats-inc'),
+    drinkHelperNote: document.getElementById('drink-helper-note'),
+
+    outboundSection: document.getElementById('outbound-section'),
+    outboundSeatsField: document.getElementById('outbound-seats-field'),
+    inputSeatsIda: document.getElementById('input-seats-ida'),
+    seatsIdaDec: document.getElementById('seats-ida-dec'),
+    seatsIdaInc: document.getElementById('seats-ida-inc'),
     btnOfficeQuick: document.getElementById('btn-office-quick'),
     inputOutbound: document.getElementById('input-outbound'),
     outboundSuggestions: document.getElementById('outbound-suggestions'),
     outboundGeoStatus: document.getElementById('outbound-geo-status'),
+
+    returnSection: document.getElementById('return-section'),
+    returnRoleNoneOption: document.getElementById('return-role-none-option'),
+    returnSeatsField: document.getElementById('return-seats-field'),
+    returnLocationField: document.getElementById('return-location-field'),
+    inputSeatsVolta: document.getElementById('input-seats-volta'),
+    seatsVoltaDec: document.getElementById('seats-volta-dec'),
+    seatsVoltaInc: document.getElementById('seats-volta-inc'),
     inputReturn: document.getElementById('input-return'),
     returnSuggestions: document.getElementById('return-suggestions'),
     returnGeoStatus: document.getElementById('return-geo-status'),
+
     inputNotes: document.getElementById('input-notes'),
     profileError: document.getElementById('profile-error'),
     profileSubmitBtn: document.getElementById('profile-submit-btn'),
@@ -118,6 +149,8 @@
   };
 
   let toastTimer = null;
+  let pollTimer = null;
+  let isPolling = false;
 
   function showToast(message) {
     el.toast.textContent = message;
@@ -125,7 +158,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       el.toast.classList.add('hidden');
-    }, 3200);
+    }, 3400);
   }
 
   function escapeHtml(str) {
@@ -154,14 +187,14 @@
     return `${distanceKm.toFixed(1).replace('.', ',')} km`;
   }
 
-  function buildWhatsAppUrl(participant, direction) {
-    const firstName = participant.fullName.trim().split(/\s+/)[0] || participant.fullName;
+  function buildWhatsAppUrl(fullName, phone, trecho) {
+    const firstName = fullName.trim().split(/\s+/)[0] || fullName;
     const tripText =
-      direction === 'outbound'
+      trecho === 'ida' || trecho === 'outbound'
         ? 'na ida para o Espaço Lagoon'
         : 'na volta do Espaço Lagoon';
     const message = `Olá, ${firstName}! Vi seu cadastro no Rota da Confra (SPS Group) e gostaria de combinar carona ${tripText}.`;
-    return `https://wa.me/55${participant.phone}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
   }
 
   async function apiFetch(path, options = {}) {
@@ -184,6 +217,7 @@
     if (response.status === 401 && path !== '/api/auth/verify') {
       localStorage.removeItem(STORAGE_KEYS.accessCode);
       state.accessCode = '';
+      stopPolling();
       showGateScreen();
       throw new Error('Sessão expirada. Informe o código de acesso novamente.');
     }
@@ -220,14 +254,25 @@
     state.myId = '';
     state.editToken = '';
     state.me = null;
+    state.myRides = null;
+    state.pendingReceivedCount = 0;
     localStorage.removeItem(STORAGE_KEYS.participantId);
     localStorage.removeItem(STORAGE_KEYS.editToken);
   }
 
-  async function loadParticipants() {
-    const params = new URLSearchParams({
-      direction: state.direction,
-    });
+  function updatePendingBadge() {
+    if (state.pendingReceivedCount > 0) {
+      el.pendingBadge.textContent = String(state.pendingReceivedCount);
+      el.pendingBadge.classList.remove('hidden');
+    } else {
+      el.pendingBadge.classList.add('hidden');
+    }
+  }
+
+  // ---------------- Data Loading & Polling ----------------
+  async function loadParticipants(silent = false) {
+    const direction = state.activeTab === 'return' ? 'return' : 'outbound';
+    const params = new URLSearchParams({ direction });
 
     if (state.myId) params.set('myId', state.myId);
     if (state.roleFilter) params.set('role', state.roleFilter);
@@ -239,6 +284,7 @@
       state.participants = data.participants || [];
       state.stats = data.stats || null;
       state.referenceSource = data.referenceSource || 'none';
+      state.pendingReceivedCount = Number(data.pendingReceivedCount || 0);
       state.me = data.me || null;
 
       if (state.myId && !state.me) {
@@ -247,10 +293,61 @@
 
       renderAll();
     } catch (error) {
-      showToast(error.message);
+      if (!silent) showToast(error.message);
     }
   }
 
+  async function loadMyRides(silent = false) {
+    if (!state.editToken) {
+      state.myRides = null;
+      state.pendingReceivedCount = 0;
+      renderAll();
+      return;
+    }
+
+    try {
+      const data = await apiFetch('/api/requests/mine', {
+        headers: { 'X-Edit-Token': state.editToken },
+      });
+      state.myRides = data;
+      state.pendingReceivedCount = Number(data.pendingCount || 0);
+      renderAll();
+    } catch (error) {
+      if (!silent) showToast(error.message);
+    }
+  }
+
+  async function refreshActiveView(silent = false) {
+    if (isPolling || !state.accessCode) return;
+    isPolling = true;
+    try {
+      if (state.activeTab === 'mine') {
+        await Promise.all([loadParticipants(true), loadMyRides(silent)]);
+      } else {
+        await loadParticipants(silent);
+      }
+    } finally {
+      isPolling = false;
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(() => {
+      if (!document.hidden && !state.modalOpen && state.accessCode) {
+        refreshActiveView(true);
+      }
+    }, POLL_INTERVAL_MS);
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  // ---------------- Rendering ----------------
   function renderMyStatusCard() {
     if (!state.me) {
       el.headerProfileBtnLabel.textContent = 'Cadastrar';
@@ -258,7 +355,7 @@
         <div class="cta-header">
           <div>
             <h2 class="cta-title">Organize sua carona para a festa</h2>
-            <p class="cta-desc">Cadastre seu trajeto de ida e volta para ver colegas mais próximos de você.</p>
+            <p class="cta-desc">Cadastre ida, volta ou ambos para pedir caronas pelo app e ver colegas próximos.</p>
           </div>
         </div>
         <div class="cta-actions">
@@ -283,35 +380,35 @@
 
     el.headerProfileBtnLabel.textContent = 'Editar perfil';
     const me = state.me;
-    const isDriver = me.role === 'offer';
-    const seatsButtonHtml = isDriver
-      ? me.seatsAvailable > 0
-        ? `<button type="button" id="quick-seats-btn" class="btn btn-secondary btn-sm" data-next-seats="0">
-            ${ICONS.check}
-            <span>Marcar vagas preenchidas</span>
-          </button>`
-        : `<button type="button" id="quick-seats-btn" class="btn btn-primary btn-sm" data-next-seats="1">
-            ${ICONS.plus}
-            <span>Reabrir 1 vaga</span>
-          </button>`
-      : '';
 
-    const seatsTag = isDriver
-      ? me.seatsAvailable > 0
-        ? `<span class="tag tag-seats-open">${me.seatsAvailable} ${me.seatsAvailable === 1 ? 'vaga livre' : 'vagas livres'}</span>`
-        : `<span class="tag tag-seats-full">Vagas preenchidas</span>`
-      : '';
+    const segmentsDesc = [];
+    if (me.outboundRole !== 'none') {
+      segmentsDesc.push(
+        `Ida: ${ROLE_LABELS[me.outboundRole]}${me.outboundRole === 'offer' ? ` (${me.remainingIda}/${me.vagasIda} livres)` : ''}`
+      );
+    }
+    if (me.returnRole !== 'none') {
+      segmentsDesc.push(
+        `Volta: ${ROLE_LABELS[me.returnRole]}${me.returnRole === 'offer' ? ` (${me.remainingVolta}/${me.vagasVolta} livres)` : ''}`
+      );
+    }
+
+    const pendingNotice =
+      state.pendingReceivedCount > 0
+        ? `<button type="button" id="quick-open-mine-btn" class="btn btn-primary btn-sm">
+             ${ICONS.users}
+             <span>${state.pendingReceivedCount} ${state.pendingReceivedCount === 1 ? 'solicitação pendente' : 'solicitações pendentes'}</span>
+           </button>`
+        : '';
 
     el.myStatusCard.innerHTML = `
       <div class="cta-header">
         <div>
-          <h2 class="cta-title">Seu cadastro: ${escapeHtml(me.fullName)}</h2>
-          <p class="cta-desc">Ida: ${escapeHtml(me.outboundLabel)} | Volta: ${escapeHtml(me.returnLabel)}</p>
+          <h2 class="cta-title">${escapeHtml(me.fullName)}</h2>
+          <p class="cta-desc">${escapeHtml(segmentsDesc.join(' | '))}</p>
         </div>
       </div>
       <div class="my-profile-meta">
-        <span class="tag tag-${me.role}">${ROLE_LABELS[me.role]}</span>
-        ${seatsTag}
         <span class="tag tag-profile">${PARTY_LABELS[me.partyProfile]}</span>
       </div>
       <div class="cta-actions">
@@ -319,7 +416,7 @@
           ${ICONS.edit}
           <span>Editar dados</span>
         </button>
-        ${seatsButtonHtml}
+        ${pendingNotice}
       </div>
     `;
 
@@ -327,41 +424,23 @@
       openProfileModal('edit');
     });
 
-    const quickSeatsBtn = document.getElementById('quick-seats-btn');
-    if (quickSeatsBtn) {
-      quickSeatsBtn.addEventListener('click', async () => {
-        const nextSeats = Number(quickSeatsBtn.dataset.nextSeats);
-        quickSeatsBtn.disabled = true;
-        try {
-          await apiFetch(`/api/participants/${state.myId}/seats`, {
-            method: 'PATCH',
-            headers: { 'X-Edit-Token': state.editToken },
-            body: JSON.stringify({ seatsAvailable: nextSeats }),
-          });
-          showToast(
-            nextSeats === 0
-              ? 'Vagas marcadas como preenchidas.'
-              : 'Vaga reaberta com sucesso.'
-          );
-          await loadParticipants();
-        } catch (error) {
-          showToast(error.message);
-          quickSeatsBtn.disabled = false;
-        }
-      });
+    const openMineBtn = document.getElementById('quick-open-mine-btn');
+    if (openMineBtn) {
+      openMineBtn.addEventListener('click', () => switchTab('mine'));
     }
   }
 
   function renderStats() {
-    if (!state.stats) {
-      el.statsRow.innerHTML = '';
+    if (!state.stats || state.activeTab === 'mine') {
+      el.statsRow.classList.add('hidden');
       return;
     }
 
+    el.statsRow.classList.remove('hidden');
     el.statsRow.innerHTML = `
       <div class="stat-card">
         <span class="stat-value">${state.stats.totalParticipants}</span>
-        <span class="stat-label">Participantes</span>
+        <span class="stat-label">Neste trecho</span>
       </div>
       <div class="stat-card">
         <span class="stat-value">${state.stats.totalSeatsOpen}</span>
@@ -375,7 +454,7 @@
   }
 
   function renderReferenceCaption() {
-    const dirLabel = state.direction === 'outbound' ? 'saída (Ida)' : 'destino (Volta)';
+    const dirLabel = state.activeTab === 'outbound' ? 'saída (Ida)' : 'destino (Volta)';
     if (state.referenceSource === 'user') {
       el.referenceCaption.innerHTML = `${ICONS.navigation} Ordenado por proximidade do seu ponto de ${dirLabel}.`;
     } else if (state.referenceSource === 'office') {
@@ -385,54 +464,123 @@
     }
   }
 
+  function renderCardFooter(p, trecho) {
+    if (p.isMe) {
+      return `
+        <div class="ride-card-footer">
+          <span class="self-indicator">${ICONS.check} Seu cadastro</span>
+          <button type="button" class="btn btn-secondary btn-sm js-edit-self">
+            ${ICONS.edit}
+            <span>Editar</span>
+          </button>
+        </div>
+      `;
+    }
+
+    const waUrl = buildWhatsAppUrl(p.fullName, p.phone, trecho);
+
+    if (p.role !== 'offer') {
+      return `
+        <div class="ride-card-footer">
+          <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-full">
+            ${ICONS.message}
+            <span>Combinar no WhatsApp</span>
+          </a>
+        </div>
+      `;
+    }
+
+    // Card de motorista: botao primario (Pedir carona / estado) + secundario (WhatsApp)
+    let primaryHtml = '';
+    const req = p.myRequest;
+
+    if (req && req.status === 'confirmada') {
+      primaryHtml = `
+        <div class="request-state-group">
+          <span class="status-pill status-pill-confirmed">${ICONS.check} Carona confirmada</span>
+          <button type="button" class="btn-link-muted js-cancel-req" data-req-id="${req.id}">
+            Cancelar
+          </button>
+        </div>
+      `;
+    } else if (req && req.status === 'pendente') {
+      primaryHtml = `
+        <div class="request-state-group">
+          <span class="status-pill status-pill-pending">${ICONS.clock} Solicitação enviada</span>
+          <button type="button" class="btn-link-muted js-cancel-req" data-req-id="${req.id}">
+            Cancelar
+          </button>
+        </div>
+      `;
+    } else if (req && req.status === 'recusada') {
+      primaryHtml = `
+        <span class="status-pill status-pill-rejected">${ICONS.x} Recusada</span>
+      `;
+    } else if (p.seatsRemaining <= 0) {
+      primaryHtml = `
+        <button type="button" class="btn btn-secondary btn-full" disabled>
+          Lotado
+        </button>
+      `;
+    } else {
+      primaryHtml = `
+        <button type="button" class="btn btn-primary btn-full js-request-ride" data-driver-id="${p.id}" data-trecho="${trecho}">
+          ${ICONS.send}
+          <span>Pedir carona</span>
+        </button>
+      `;
+    }
+
+    return `
+      <div class="ride-card-footer">
+        <div class="ride-actions-row">
+          <div>${primaryHtml}</div>
+          <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+            ${ICONS.message}
+            <span>WhatsApp</span>
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
   function renderParticipants() {
+    if (state.activeTab === 'mine') {
+      el.participantsList.classList.add('hidden');
+      return;
+    }
+
+    el.participantsList.classList.remove('hidden');
+
     if (!state.participants.length) {
       el.participantsList.innerHTML = `
         <div class="empty-state">
           ${ICONS.search}
           <h3>Nenhum participante encontrado</h3>
-          <p>Ajuste os filtros acima ou seja o primeiro a cadastrar sua rota.</p>
+          <p>Ajuste os filtros acima ou cadastre sua rota para este trecho.</p>
         </div>
       `;
       return;
     }
 
+    const trecho = state.activeTab === 'return' ? 'volta' : 'ida';
+
     el.participantsList.innerHTML = state.participants
       .map((p) => {
         const locationLabel =
-          state.direction === 'outbound' ? p.outboundLabel : p.returnLabel;
+          state.activeTab === 'outbound' ? p.outboundLabel : p.returnLabel;
         const distanceLabel = formatDistance(p.distanceKm, p.isMe);
 
         const seatsTag =
           p.role === 'offer'
-            ? p.seatsAvailable > 0
-              ? `<span class="tag tag-seats-open">${ICONS.users} ${p.seatsAvailable} ${p.seatsAvailable === 1 ? 'vaga livre' : 'vagas livres'}</span>`
-              : `<span class="tag tag-seats-full">Vagas preenchidas</span>`
+            ? p.seatsRemaining > 0
+              ? `<span class="tag tag-seats-open">${ICONS.users} ${p.seatsRemaining} de ${p.seatsTotal} ${p.seatsRemaining === 1 ? 'vaga livre' : 'vagas livres'}</span>`
+              : `<span class="tag tag-seats-full">Lotado</span>`
             : '';
 
         const notesHtml = p.notes
           ? `<div class="ride-notes">${escapeHtml(p.notes)}</div>`
           : '';
-
-        const footerHtml = p.isMe
-          ? `<div class="ride-card-footer">
-               <span class="self-indicator">${ICONS.check} Seu cadastro</span>
-               <button type="button" class="btn btn-secondary btn-sm js-edit-self">
-                 ${ICONS.edit}
-                 <span>Editar</span>
-               </button>
-             </div>`
-          : `<div class="ride-card-footer">
-               <a
-                 href="${buildWhatsAppUrl(p, state.direction)}"
-                 target="_blank"
-                 rel="noopener noreferrer"
-                 class="btn btn-primary btn-full"
-               >
-                 ${ICONS.message}
-                 <span>Combinar no WhatsApp</span>
-               </a>
-             </div>`;
 
         return `
           <article class="ride-card ${p.isMe ? 'is-me' : ''}">
@@ -456,33 +604,414 @@
             </div>
 
             ${notesHtml}
-            ${footerHtml}
+            ${renderCardFooter(p, trecho)}
           </article>
         `;
       })
       .join('');
 
+    bindParticipantCardActions();
+  }
+
+  function bindParticipantCardActions() {
     const selfEditBtn = el.participantsList.querySelector('.js-edit-self');
     if (selfEditBtn) {
       selfEditBtn.addEventListener('click', () => openProfileModal('edit'));
     }
+
+    el.participantsList.querySelectorAll('.js-request-ride').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!state.myId || !state.editToken) {
+          showToast('Cadastre sua rota antes de pedir carona.');
+          openProfileModal('new');
+          return;
+        }
+        const motoristaId = btn.dataset.driverId;
+        const trecho = btn.dataset.trecho;
+        btn.disabled = true;
+        try {
+          await apiFetch('/api/requests', {
+            method: 'POST',
+            headers: { 'X-Edit-Token': state.editToken },
+            body: JSON.stringify({ motoristaId, trecho }),
+          });
+          showToast('Solicitação enviada ao motorista.');
+          await loadParticipants();
+        } catch (error) {
+          showToast(error.message);
+          btn.disabled = false;
+        }
+      });
+    });
+
+    el.participantsList.querySelectorAll('.js-cancel-req').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const reqId = btn.dataset.reqId;
+        btn.disabled = true;
+        try {
+          await apiFetch(`/api/requests/${reqId}/status`, {
+            method: 'PATCH',
+            headers: { 'X-Edit-Token': state.editToken },
+            body: JSON.stringify({ status: 'cancelada' }),
+          });
+          showToast('Solicitação cancelada.');
+          await loadParticipants();
+        } catch (error) {
+          showToast(error.message);
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  function renderRequestItemHtml(item, mode) {
+    const waUrl = buildWhatsAppUrl(
+      item.peer.fullName,
+      item.peer.phone,
+      item.trecho
+    );
+    const distLabel = formatDistance(item.peer.distanceKm, false);
+    const notesHtml = item.peer.notes
+      ? `<div class="ride-notes">${escapeHtml(item.peer.notes)}</div>`
+      : '';
+
+    let actionsHtml = '';
+
+    if (mode === 'driver-pending') {
+      actionsHtml = `
+        <button type="button" class="btn btn-primary btn-sm js-req-action" data-req-id="${item.id}" data-next-status="confirmada">
+          ${ICONS.check}
+          <span>Confirmar</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm js-req-action" data-req-id="${item.id}" data-next-status="recusada">
+          ${ICONS.x}
+          <span>Recusar</span>
+        </button>
+        <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+          ${ICONS.message}
+          <span>WhatsApp</span>
+        </a>
+      `;
+    } else if (mode === 'driver-confirmed') {
+      actionsHtml = `
+        <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+          ${ICONS.message}
+          <span>WhatsApp</span>
+        </a>
+        <button type="button" class="btn-link-muted js-req-action" data-req-id="${item.id}" data-next-status="cancelada">
+          Remover passageiro
+        </button>
+      `;
+    } else if (mode === 'passenger-sent') {
+      const statusMap = {
+        pendente: '<span class="status-pill status-pill-pending">Pendente</span>',
+        confirmada: '<span class="status-pill status-pill-confirmed">Carona confirmada</span>',
+        recusada: '<span class="status-pill status-pill-rejected">Recusada</span>',
+      };
+      const canCancel = item.status === 'pendente' || item.status === 'confirmada';
+      actionsHtml = `
+        ${statusMap[item.status] || ''}
+        <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+          ${ICONS.message}
+          <span>WhatsApp</span>
+        </a>
+        ${
+          canCancel
+            ? `<button type="button" class="btn-link-muted js-req-action" data-req-id="${item.id}" data-next-status="cancelada">Cancelar</button>`
+            : ''
+        }
+      `;
+    }
+
+    return `
+      <div class="request-item">
+        <div class="request-item-top">
+          <h4 class="request-item-name">${escapeHtml(item.peer.fullName)}</h4>
+          <span class="distance-badge">
+            ${ICONS.navigation}
+            <span>${escapeHtml(distLabel)}</span>
+          </span>
+        </div>
+        ${
+          item.peer.locationLabel
+            ? `<div class="request-item-meta">${ICONS.mapPin}<span>${escapeHtml(item.peer.locationLabel)}</span></div>`
+            : ''
+        }
+        ${notesHtml}
+        <div class="request-item-actions">${actionsHtml}</div>
+      </div>
+    `;
+  }
+
+  function renderMyRidesPanel() {
+    if (state.activeTab !== 'mine') {
+      el.myRidesPanel.classList.add('hidden');
+      return;
+    }
+
+    el.myRidesPanel.classList.remove('hidden');
+
+    if (!state.me || !state.editToken) {
+      el.myRidesPanel.innerHTML = `
+        <div class="empty-state">
+          ${ICONS.car}
+          <h3>Cadastre sua rota primeiro</h3>
+          <p>Para gerenciar solicitações recebidas ou acompanhar seus pedidos de carona, faça seu cadastro ou recupere pelo WhatsApp.</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (!state.myRides) {
+      el.myRidesPanel.innerHTML = `
+        <div class="empty-state">
+          <h3>Carregando suas caronas...</h3>
+        </div>
+      `;
+      return;
+    }
+
+    const { driverSummary, received, sent } = state.myRides;
+    const isDriverAnywhere = driverSummary.offersIda || driverSummary.offersVolta;
+
+    const pendingIda = received.filter(
+      (r) => r.trecho === 'ida' && r.status === 'pendente'
+    );
+    const pendingVolta = received.filter(
+      (r) => r.trecho === 'volta' && r.status === 'pendente'
+    );
+    const confirmedIda = received.filter(
+      (r) => r.trecho === 'ida' && r.status === 'confirmada'
+    );
+    const confirmedVolta = received.filter(
+      (r) => r.trecho === 'volta' && r.status === 'confirmada'
+    );
+
+    const sentIda = sent.filter((r) => r.trecho === 'ida');
+    const sentVolta = sent.filter((r) => r.trecho === 'volta');
+
+    let html = '';
+
+    if (isDriverAnywhere) {
+      // Bloco de Solicitacoes Recebidas
+      html += `
+        <div class="panel-section">
+          <div class="panel-section-head">
+            <h3 class="panel-section-title">${ICONS.users} Solicitações recebidas</h3>
+          </div>
+          ${
+            driverSummary.offersIda
+              ? `<div class="panel-subblock">
+                   <p class="panel-subblock-title">
+                     <span>Ida</span>
+                     <span>${driverSummary.remainingIda} de ${driverSummary.vagasIda} livres</span>
+                   </p>
+                   ${
+                     pendingIda.length
+                       ? pendingIda.map((r) => renderRequestItemHtml(r, 'driver-pending')).join('')
+                       : '<p class="panel-empty-text">Nenhuma solicitação pendente para a ida.</p>'
+                   }
+                 </div>`
+              : ''
+          }
+          ${
+            driverSummary.offersVolta
+              ? `<div class="panel-subblock">
+                   <p class="panel-subblock-title">
+                     <span>Volta</span>
+                     <span>${driverSummary.remainingVolta} de ${driverSummary.vagasVolta} livres</span>
+                   </p>
+                   ${
+                     pendingVolta.length
+                       ? pendingVolta.map((r) => renderRequestItemHtml(r, 'driver-pending')).join('')
+                       : '<p class="panel-empty-text">Nenhuma solicitação pendente para a volta.</p>'
+                   }
+                 </div>`
+              : ''
+          }
+        </div>
+
+        <div class="panel-section">
+          <div class="panel-section-head">
+            <h3 class="panel-section-title">${ICONS.check} Passageiros confirmados</h3>
+          </div>
+          ${
+            driverSummary.offersIda
+              ? `<div class="panel-subblock">
+                   <p class="panel-subblock-title">
+                     <span>Ida</span>
+                     <span>${driverSummary.confirmedIda}/${driverSummary.vagasIda} ocupadas</span>
+                   </p>
+                   ${
+                     confirmedIda.length
+                       ? confirmedIda.map((r) => renderRequestItemHtml(r, 'driver-confirmed')).join('')
+                       : '<p class="panel-empty-text">Nenhum passageiro confirmado na ida ainda.</p>'
+                   }
+                 </div>`
+              : ''
+          }
+          ${
+            driverSummary.offersVolta
+              ? `<div class="panel-subblock">
+                   <p class="panel-subblock-title">
+                     <span>Volta</span>
+                     <span>${driverSummary.confirmedVolta}/${driverSummary.vagasVolta} ocupadas</span>
+                   </p>
+                   ${
+                     confirmedVolta.length
+                       ? confirmedVolta.map((r) => renderRequestItemHtml(r, 'driver-confirmed')).join('')
+                       : '<p class="panel-empty-text">Nenhum passageiro confirmado na volta ainda.</p>'
+                   }
+                 </div>`
+              : ''
+          }
+        </div>
+      `;
+    }
+
+    // Bloco de Pedidos Enviados (Passageiro)
+    html += `
+      <div class="panel-section">
+        <div class="panel-section-head">
+          <h3 class="panel-section-title">${ICONS.send} Meus pedidos de carona</h3>
+        </div>
+        ${
+          sentIda.length || sentVolta.length
+            ? `
+              ${
+                sentIda.length
+                  ? `<div class="panel-subblock">
+                       <p class="panel-subblock-title"><span>Ida</span></p>
+                       ${sentIda.map((r) => renderRequestItemHtml(r, 'passenger-sent')).join('')}
+                     </div>`
+                  : ''
+              }
+              ${
+                sentVolta.length
+                  ? `<div class="panel-subblock">
+                       <p class="panel-subblock-title"><span>Volta</span></p>
+                       ${sentVolta.map((r) => renderRequestItemHtml(r, 'passenger-sent')).join('')}
+                     </div>`
+                  : ''
+              }
+            `
+            : '<p class="panel-empty-text">Você ainda não enviou pedidos de carona. Explore as abas Ida e Volta para solicitar.</p>'
+        }
+      </div>
+    `;
+
+    el.myRidesPanel.innerHTML = html;
+
+    el.myRidesPanel.querySelectorAll('.js-req-action').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const reqId = btn.dataset.reqId;
+        const nextStatus = btn.dataset.nextStatus;
+        btn.disabled = true;
+        try {
+          await apiFetch(`/api/requests/${reqId}/status`, {
+            method: 'PATCH',
+            headers: { 'X-Edit-Token': state.editToken },
+            body: JSON.stringify({ status: nextStatus }),
+          });
+          const feedback = {
+            confirmada: 'Carona confirmada e vaga atualizada.',
+            recusada: 'Solicitação recusada.',
+            cancelada: 'Solicitação removida com sucesso.',
+          };
+          showToast(feedback[nextStatus] || 'Atualizado.');
+          await refreshActiveView();
+        } catch (error) {
+          showToast(error.message);
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   function renderAll() {
+    updatePendingBadge();
     renderMyStatusCard();
     renderStats();
-    renderReferenceCaption();
+
+    const isMine = state.activeTab === 'mine';
+    el.listFiltersWrap.classList.toggle('hidden', isMine);
+
+    if (!isMine) {
+      renderReferenceCaption();
+    }
     renderParticipants();
+    renderMyRidesPanel();
+  }
+
+  function switchTab(tab) {
+    state.activeTab = tab;
+    [
+      [el.tabOutbound, 'outbound'],
+      [el.tabReturn, 'return'],
+      [el.tabMine, 'mine'],
+    ].forEach(([btn, key]) => {
+      const active = tab === key;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+
+    refreshActiveView();
   }
 
   // ---------------- Modal & Form Logic ----------------
-  function setRoleSeatsVisibility() {
-    const selectedRole =
-      el.profileForm.querySelector('input[name="role"]:checked')?.value || 'offer';
-    if (selectedRole === 'offer') {
-      el.seatsField.classList.remove('hidden');
-    } else {
-      el.seatsField.classList.add('hidden');
+  function getRadioValue(name, fallback) {
+    return (
+      el.profileForm.querySelector(`input[name="${name}"]:checked`)?.value ||
+      fallback
+    );
+  }
+
+  function setRadioValue(name, value) {
+    const radio = el.profileForm.querySelector(
+      `input[name="${name}"][value="${value}"]`
+    );
+    if (radio) radio.checked = true;
+  }
+
+  function syncFormVisibility() {
+    const scope = getRadioValue('tripScope', 'both');
+    const showOutbound = scope === 'both' || scope === 'outbound_only';
+    const showReturn = scope === 'both' || scope === 'return_only';
+
+    el.outboundSection.classList.toggle('hidden', !showOutbound);
+    el.returnSection.classList.toggle('hidden', !showReturn);
+
+    // Opcao "Nao preciso (volto de app)" so faz sentido quando scope === 'both'
+    el.returnRoleNoneOption.classList.toggle('hidden', scope !== 'both');
+    if (scope === 'return_only' && getRadioValue('returnRole', 'offer') === 'none') {
+      setRadioValue('returnRole', 'need');
+    }
+
+    const outboundRole = getRadioValue('outboundRole', 'offer');
+    const returnRole = getRadioValue('returnRole', 'offer');
+
+    el.outboundSeatsField.classList.toggle('hidden', outboundRole !== 'offer');
+    el.returnSeatsField.classList.toggle('hidden', returnRole !== 'offer');
+    el.returnLocationField.classList.toggle('hidden', returnRole === 'none');
+  }
+
+  function handleDrinkProfileChange() {
+    const partyProfile = getRadioValue('partyProfile', 'no_preference');
+    const scope = getRadioValue('tripScope', 'both');
+    const outboundRole = getRadioValue('outboundRole', 'offer');
+    const returnRole = getRadioValue('returnRole', 'offer');
+
+    if (
+      partyProfile === 'will_drink' &&
+      scope === 'both' &&
+      outboundRole === 'offer' &&
+      returnRole === 'offer'
+    ) {
+      setRadioValue('returnRole', 'need');
+      el.drinkHelperNote.classList.remove('hidden');
+      syncFormVisibility();
+    } else if (partyProfile !== 'will_drink') {
+      el.drinkHelperNote.classList.add('hidden');
     }
   }
 
@@ -509,13 +1038,14 @@
   function openProfileModal(mode) {
     el.profileError.classList.add('hidden');
     el.recoverError.classList.add('hidden');
+    el.drinkHelperNote.classList.add('hidden');
     el.outboundSuggestions.classList.add('hidden');
     el.returnSuggestions.classList.add('hidden');
 
     if (mode === 'edit' && state.me) {
       state.isEditing = true;
       el.modalTitle.textContent = 'Editar meu cadastro';
-      el.modalSubtitle.textContent = 'Atualize suas vagas, horários ou localização.';
+      el.modalSubtitle.textContent = 'Configure ida e volta de forma independente.';
       el.modalModeSwitch.classList.add('hidden');
       el.recoverForm.classList.add('hidden');
       el.profileForm.classList.remove('hidden');
@@ -525,20 +1055,32 @@
       const me = state.me;
       el.inputFullName.value = me.fullName;
       el.inputPhone.value = formatPhoneMask(me.phone);
-      const roleRadio = el.profileForm.querySelector(
-        `input[name="role"][value="${me.role}"]`
+      setRadioValue('partyProfile', me.partyProfile || 'no_preference');
+      setRadioValue('tripScope', me.tripScope || 'both');
+
+      setRadioValue(
+        'outboundRole',
+        me.outboundRole && me.outboundRole !== 'none' ? me.outboundRole : 'need'
       );
-      if (roleRadio) roleRadio.checked = true;
-      el.inputSeats.value = String(me.role === 'offer' ? me.seatsAvailable : 3);
-      setRoleSeatsVisibility();
+      setRadioValue(
+        'returnRole',
+        me.returnRole && me.returnRole !== 'none' ? me.returnRole : 'need'
+      );
+
+      el.inputSeatsIda.value = String(
+        me.outboundRole === 'offer' ? me.vagasIda : 3
+      );
+      el.inputSeatsVolta.value = String(
+        me.returnRole === 'offer' ? me.vagasVolta : 3
+      );
 
       state.outboundGeo = {
         isOffice: Boolean(me.outboundIsOffice),
-        label: me.outboundLabel,
+        label: me.outboundLabel || '',
         lat: me.outboundLat,
         lng: me.outboundLng,
       };
-      el.inputOutbound.value = me.outboundLabel;
+      el.inputOutbound.value = me.outboundLabel || '';
       el.btnOfficeQuick.classList.toggle('active', Boolean(me.outboundIsOffice));
       updateGeoStatus(
         'outbound',
@@ -547,22 +1089,19 @@
       );
 
       state.returnGeo = {
-        label: me.returnLabel,
+        label: me.returnLabel || '',
         lat: me.returnLat,
         lng: me.returnLng,
       };
-      el.inputReturn.value = me.returnLabel;
+      el.inputReturn.value = me.returnLabel || '';
       updateGeoStatus(
         'return',
         me.returnLat !== null ? 'Localização aproximada confirmada.' : '',
         me.returnLat !== null
       );
 
-      const partyRadio = el.profileForm.querySelector(
-        `input[name="partyProfile"][value="${me.partyProfile}"]`
-      );
-      if (partyRadio) partyRadio.checked = true;
       el.inputNotes.value = me.notes || '';
+      syncFormVisibility();
     } else {
       state.isEditing = false;
       el.modalTitle.textContent = 'Cadastrar minha rota';
@@ -573,8 +1112,14 @@
       el.profileSubmitBtn.textContent = 'Salvar cadastro';
 
       el.profileForm.reset();
-      el.inputSeats.value = '3';
-      setRoleSeatsVisibility();
+      setRadioValue('tripScope', 'both');
+      setRadioValue('outboundRole', 'offer');
+      setRadioValue('returnRole', 'offer');
+      setRadioValue('partyProfile', 'no_preference');
+      el.inputSeatsIda.value = '3';
+      el.inputSeatsVolta.value = '3';
+      syncFormVisibility();
+
       state.outboundGeo = { isOffice: false, label: '', lat: null, lng: null };
       state.returnGeo = { label: '', lat: null, lng: null };
       el.btnOfficeQuick.classList.remove('active');
@@ -584,11 +1129,13 @@
       switchModalMode(mode === 'recover' ? 'recover' : 'new');
     }
 
+    state.modalOpen = true;
     el.profileModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }
 
   function closeProfileModal() {
+    state.modalOpen = false;
     el.profileModal.classList.add('hidden');
     document.body.style.overflow = '';
   }
@@ -736,7 +1283,8 @@
         }
         localStorage.setItem(STORAGE_KEYS.accessCode, code);
         showMainApp();
-        await loadParticipants();
+        await refreshActiveView();
+        startPolling();
       } catch (error) {
         el.gateError.textContent = error.message;
         el.gateError.classList.remove('hidden');
@@ -749,16 +1297,11 @@
       openProfileModal(state.me ? 'edit' : 'new');
     });
 
-    [el.tabOutbound, el.tabReturn].forEach((tab) => {
+    [el.tabOutbound, el.tabReturn, el.tabMine].forEach((tab) => {
       tab.addEventListener('click', () => {
-        const dir = tab.dataset.direction;
-        if (state.direction === dir) return;
-        state.direction = dir;
-        el.tabOutbound.classList.toggle('active', dir === 'outbound');
-        el.tabOutbound.setAttribute('aria-selected', String(dir === 'outbound'));
-        el.tabReturn.classList.toggle('active', dir === 'return');
-        el.tabReturn.setAttribute('aria-selected', String(dir === 'return'));
-        loadParticipants();
+        const targetTab = tab.dataset.tab;
+        if (state.activeTab === targetTab) return;
+        switchTab(targetTab);
       });
     });
 
@@ -796,19 +1339,31 @@
       });
     });
 
-    el.profileForm.querySelectorAll('input[name="role"]').forEach((radio) => {
-      radio.addEventListener('change', setRoleSeatsVisibility);
-    });
+    el.profileForm
+      .querySelectorAll('input[name="tripScope"], input[name="outboundRole"], input[name="returnRole"]')
+      .forEach((radio) => {
+        radio.addEventListener('change', syncFormVisibility);
+      });
 
-    el.seatsDec.addEventListener('click', () => {
-      const current = Number(el.inputSeats.value) || 0;
-      el.inputSeats.value = String(Math.max(0, current - 1));
-    });
+    el.profileForm
+      .querySelectorAll('input[name="partyProfile"]')
+      .forEach((radio) => {
+        radio.addEventListener('change', handleDrinkProfileChange);
+      });
 
-    el.seatsInc.addEventListener('click', () => {
-      const current = Number(el.inputSeats.value) || 0;
-      el.inputSeats.value = String(Math.min(15, current + 1));
-    });
+    const bindStepper = (decBtn, incBtn, inputEl) => {
+      decBtn.addEventListener('click', () => {
+        const current = Number(inputEl.value) || 0;
+        inputEl.value = String(Math.max(0, current - 1));
+      });
+      incBtn.addEventListener('click', () => {
+        const current = Number(inputEl.value) || 0;
+        inputEl.value = String(Math.min(15, current + 1));
+      });
+    };
+
+    bindStepper(el.seatsIdaDec, el.seatsIdaInc, el.inputSeatsIda);
+    bindStepper(el.seatsVoltaDec, el.seatsVoltaInc, el.inputSeatsVolta);
 
     el.btnOfficeQuick.addEventListener('click', () => {
       setOfficeOutbound(!state.outboundGeo.isOffice);
@@ -830,7 +1385,7 @@
         saveMySession(data.participant, data.editToken);
         showToast('Cadastro recuperado com sucesso.');
         openProfileModal('edit');
-        await loadParticipants();
+        await refreshActiveView();
       } catch (error) {
         el.recoverError.textContent = error.message;
         el.recoverError.classList.remove('hidden');
@@ -843,24 +1398,33 @@
       event.preventDefault();
       el.profileError.classList.add('hidden');
 
-      const role =
-        el.profileForm.querySelector('input[name="role"]:checked')?.value || 'offer';
-      const partyProfile =
-        el.profileForm.querySelector('input[name="partyProfile"]:checked')?.value ||
-        'no_preference';
+      const tripScope = getRadioValue('tripScope', 'both');
+      const hasOutbound = tripScope === 'both' || tripScope === 'outbound_only';
+      const hasReturn = tripScope === 'both' || tripScope === 'return_only';
+
+      const outboundRole = hasOutbound
+        ? getRadioValue('outboundRole', 'offer')
+        : 'none';
+      const returnRole = hasReturn
+        ? getRadioValue('returnRole', 'offer')
+        : 'none';
+      const partyProfile = getRadioValue('partyProfile', 'no_preference');
 
       const payload = {
         fullName: el.inputFullName.value.trim(),
         phone: el.inputPhone.value,
-        role,
-        seatsAvailable: role === 'offer' ? Number(el.inputSeats.value) : 0,
-        outboundIsOffice: state.outboundGeo.isOffice,
-        outboundLabel: el.inputOutbound.value.trim(),
-        outboundLat: state.outboundGeo.lat,
-        outboundLng: state.outboundGeo.lng,
-        returnLabel: el.inputReturn.value.trim(),
-        returnLat: state.returnGeo.lat,
-        returnLng: state.returnGeo.lng,
+        tripScope,
+        outboundRole,
+        returnRole,
+        vagasIda: outboundRole === 'offer' ? Number(el.inputSeatsIda.value) : 0,
+        vagasVolta: returnRole === 'offer' ? Number(el.inputSeatsVolta.value) : 0,
+        outboundIsOffice: outboundRole !== 'none' ? state.outboundGeo.isOffice : false,
+        outboundLabel: outboundRole !== 'none' ? el.inputOutbound.value.trim() : '',
+        outboundLat: outboundRole !== 'none' ? state.outboundGeo.lat : null,
+        outboundLng: outboundRole !== 'none' ? state.outboundGeo.lng : null,
+        returnLabel: returnRole !== 'none' ? el.inputReturn.value.trim() : '',
+        returnLat: returnRole !== 'none' ? state.returnGeo.lat : null,
+        returnLng: returnRole !== 'none' ? state.returnGeo.lng : null,
         partyProfile,
         notes: el.inputNotes.value.trim(),
       };
@@ -886,7 +1450,7 @@
         }
 
         closeProfileModal();
-        await loadParticipants();
+        await refreshActiveView();
       } catch (error) {
         el.profileError.textContent = error.message;
         el.profileError.classList.remove('hidden');
@@ -911,12 +1475,25 @@
         clearMySession();
         closeProfileModal();
         showToast('Seu cadastro foi removido.');
-        await loadParticipants();
+        await refreshActiveView();
       } catch (error) {
         el.profileError.textContent = error.message;
         el.profileError.classList.remove('hidden');
       } finally {
         el.profileDeleteBtn.disabled = false;
+      }
+    });
+
+    // Atualiza ao focar na janela ou retornar para a aba
+    window.addEventListener('focus', () => {
+      if (state.accessCode && !state.modalOpen) {
+        refreshActiveView(true);
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && state.accessCode && !state.modalOpen) {
+        refreshActiveView(true);
       }
     });
   }
@@ -935,7 +1512,8 @@
         state.spsOffice = cfg.spsOffice;
       }
       showMainApp();
-      await loadParticipants();
+      await refreshActiveView();
+      startPolling();
     } catch {
       showGateScreen();
     }

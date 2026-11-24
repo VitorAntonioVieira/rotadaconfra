@@ -5,23 +5,30 @@ import { haversineDistanceKm } from '../lib/haversine';
 import {
   normalizePhone,
   validateParticipantInput,
-  type ParticipantRole,
+  type LegacyRole,
   type PartyProfile,
+  type SegmentRole,
+  type TripScope,
 } from '../lib/validation';
 import { accessCodeMiddleware } from '../middleware/accessCode';
 
-interface ParticipantRow {
+export interface ParticipantRow {
   id: string;
   edit_token: string;
   full_name: string;
   phone: string;
-  role: ParticipantRole;
+  role: LegacyRole;
   seats_available: number;
+  trip_scope: TripScope;
+  outbound_role: SegmentRole;
+  return_role: SegmentRole;
+  vagas_ida: number;
+  vagas_volta: number;
   outbound_is_office: boolean;
-  outbound_label: string;
+  outbound_label: string | null;
   outbound_lat: number | null;
   outbound_lng: number | null;
-  return_label: string;
+  return_label: string | null;
   return_lat: number | null;
   return_lng: number | null;
   party_profile: PartyProfile;
@@ -30,31 +37,87 @@ interface ParticipantRow {
   updated_at: string;
 }
 
+interface ConfirmedCountRow {
+  motorista_id: string;
+  trecho: 'ida' | 'volta';
+  total: number;
+}
+
+interface MyRequestRow {
+  id: string;
+  motorista_id: string;
+  status: 'pendente' | 'confirmada' | 'recusada' | 'cancelada';
+}
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function serializePublicParticipant(
   row: ParticipantRow,
-  distanceKm: number | null = null,
-  isMe = false
+  options?: {
+    direction?: 'outbound' | 'return';
+    distanceKm?: number | null;
+    isMe?: boolean;
+    confirmedIda?: number;
+    confirmedVolta?: number;
+    myRequest?: {
+      id: string;
+      status: 'pendente' | 'confirmada' | 'recusada' | 'cancelada';
+    } | null;
+  }
 ) {
+  const direction = options?.direction ?? 'outbound';
+  const confirmedIda = options?.confirmedIda ?? 0;
+  const confirmedVolta = options?.confirmedVolta ?? 0;
+
+  const remainingIda =
+    row.outbound_role === 'offer'
+      ? Math.max(0, row.vagas_ida - confirmedIda)
+      : 0;
+  const remainingVolta =
+    row.return_role === 'offer'
+      ? Math.max(0, row.vagas_volta - confirmedVolta)
+      : 0;
+
+  const activeRole =
+    direction === 'outbound' ? row.outbound_role : row.return_role;
+  const seatsTotal =
+    direction === 'outbound' ? row.vagas_ida : row.vagas_volta;
+  const seatsConfirmed =
+    direction === 'outbound' ? confirmedIda : confirmedVolta;
+  const seatsRemaining =
+    direction === 'outbound' ? remainingIda : remainingVolta;
+
   return {
     id: row.id,
     fullName: row.full_name,
     phone: row.phone,
-    role: row.role,
-    seatsAvailable: row.seats_available,
+    tripScope: row.trip_scope,
+    role: activeRole,
+    outboundRole: row.outbound_role,
+    returnRole: row.return_role,
+    vagasIda: row.vagas_ida,
+    vagasVolta: row.vagas_volta,
+    confirmedIda,
+    confirmedVolta,
+    remainingIda,
+    remainingVolta,
+    seatsTotal,
+    seatsConfirmed,
+    seatsRemaining,
+    seatsAvailable: seatsRemaining,
     outboundIsOffice: row.outbound_is_office,
-    outboundLabel: row.outbound_label,
+    outboundLabel: row.outbound_label ?? '',
     outboundLat: row.outbound_lat,
     outboundLng: row.outbound_lng,
-    returnLabel: row.return_label,
+    returnLabel: row.return_label ?? '',
     returnLat: row.return_lat,
     returnLng: row.return_lng,
     partyProfile: row.party_profile,
     notes: row.notes,
-    distanceKm,
-    isMe,
+    distanceKm: options?.distanceKm ?? null,
+    isMe: options?.isMe ?? false,
+    myRequest: options?.myRequest ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -66,6 +129,7 @@ participantsRoutes.use('*', accessCodeMiddleware);
 
 participantsRoutes.get('/', async (c) => {
   const direction = c.req.query('direction') === 'return' ? 'return' : 'outbound';
+  const trecho: 'ida' | 'volta' = direction === 'outbound' ? 'ida' : 'volta';
   const myId = c.req.query('myId');
   const roleFilter = c.req.query('role');
   const onlyWithSeats = c.req.query('onlyWithSeats') === 'true';
@@ -74,15 +138,69 @@ participantsRoutes.get('/', async (c) => {
   const queryLat = c.req.query('lat');
   const queryLng = c.req.query('lng');
 
-  const rows = await sql<ParticipantRow[]>`
-    SELECT *
-    FROM participants
-    ORDER BY updated_at DESC
-  `;
+  const [rows, confirmedRows] = await Promise.all([
+    sql<ParticipantRow[]>`
+      SELECT *
+      FROM participants
+      ORDER BY updated_at DESC
+    `,
+    sql<ConfirmedCountRow[]>`
+      SELECT motorista_id, trecho, COUNT(*)::int AS total
+      FROM solicitacoes_carona
+      WHERE status = 'confirmada'
+      GROUP BY motorista_id, trecho
+    `,
+  ]);
+
+  const confirmedMap = new Map<string, number>();
+  for (const item of confirmedRows) {
+    confirmedMap.set(`${item.motorista_id}:${item.trecho}`, Number(item.total));
+  }
+
+  const getConfirmed = (id: string, seg: 'ida' | 'volta') =>
+    confirmedMap.get(`${id}:${seg}`) ?? 0;
 
   let meRow: ParticipantRow | undefined;
+  let myRequestsMap = new Map<
+    string,
+    { id: string; status: 'pendente' | 'confirmada' | 'recusada' | 'cancelada' }
+  >();
+  let pendingReceivedCount = 0;
+
   if (myId && UUID_REGEX.test(myId)) {
     meRow = rows.find((row) => row.id === myId);
+    if (meRow) {
+      const [sentForDirection, pendingCountRows] = await Promise.all([
+        sql<MyRequestRow[]>`
+          SELECT DISTINCT ON (motorista_id) id, motorista_id, status
+          FROM solicitacoes_carona
+          WHERE passageiro_id = ${myId}
+            AND trecho = ${trecho}
+            AND status <> 'cancelada'
+          ORDER BY motorista_id,
+            CASE status
+              WHEN 'confirmada' THEN 1
+              WHEN 'pendente' THEN 2
+              ELSE 3
+            END,
+            atualizado_em DESC
+        `,
+        sql<{ total: number }[]>`
+          SELECT COUNT(*)::int AS total
+          FROM solicitacoes_carona
+          WHERE motorista_id = ${myId}
+            AND status = 'pendente'
+        `,
+      ]);
+
+      for (const req of sentForDirection) {
+        myRequestsMap.set(req.motorista_id, {
+          id: req.id,
+          status: req.status,
+        });
+      }
+      pendingReceivedCount = Number(pendingCountRows[0]?.total ?? 0);
+    }
   }
 
   let refLat: number | null = null;
@@ -111,12 +229,21 @@ participantsRoutes.get('/', async (c) => {
     referenceSource = 'office';
   }
 
-  const filtered = rows.filter((row) => {
+  // Participantes ativos no trecho selecionado
+  const activeInDirection = rows.filter((row) => {
+    const segRole = direction === 'outbound' ? row.outbound_role : row.return_role;
+    return segRole !== 'none';
+  });
+
+  const filtered = activeInDirection.filter((row) => {
+    const segRole = direction === 'outbound' ? row.outbound_role : row.return_role;
     if (roleFilter && ['offer', 'need', 'split'].includes(roleFilter)) {
-      if (row.role !== roleFilter) return false;
+      if (segRole !== roleFilter) return false;
     }
     if (onlyWithSeats) {
-      if (row.role !== 'offer' || row.seats_available <= 0) return false;
+      const total = direction === 'outbound' ? row.vagas_ida : row.vagas_volta;
+      const remaining = Math.max(0, total - getConfirmed(row.id, trecho));
+      if (segRole !== 'offer' || remaining <= 0) return false;
     }
     if (noDrinkOnly) {
       if (row.party_profile !== 'no_drink') return false;
@@ -132,34 +259,69 @@ participantsRoutes.get('/', async (c) => {
       ? 0
       : haversineDistanceKm(refLat, refLng, targetLat, targetLng);
 
-    return serializePublicParticipant(row, distanceKm, isMe);
+    return serializePublicParticipant(row, {
+      direction,
+      distanceKm,
+      isMe,
+      confirmedIda: getConfirmed(row.id, 'ida'),
+      confirmedVolta: getConfirmed(row.id, 'volta'),
+      myRequest: myRequestsMap.get(row.id) ?? null,
+    });
   });
 
   mapped.sort((a, b) => {
     const distA = a.distanceKm ?? Number.POSITIVE_INFINITY;
     const distB = b.distanceKm ?? Number.POSITIVE_INFINITY;
     if (distA !== distB) return distA - distB;
-    if (b.seatsAvailable !== a.seatsAvailable) {
-      return b.seatsAvailable - a.seatsAvailable;
+    if (b.seatsRemaining !== a.seatsRemaining) {
+      return b.seatsRemaining - a.seatsRemaining;
     }
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
+  // Estatisticas do trecho ativo
   const stats = {
-    totalParticipants: rows.length,
-    driversOffering: rows.filter((r) => r.role === 'offer').length,
-    totalSeatsOpen: rows.reduce(
-      (sum, r) => sum + (r.role === 'offer' ? r.seats_available : 0),
-      0
-    ),
-    needingRide: rows.filter((r) => r.role === 'need').length,
-    splittingApp: rows.filter((r) => r.role === 'split').length,
+    totalParticipants: activeInDirection.length,
+    driversOffering: activeInDirection.filter((r) =>
+      direction === 'outbound'
+        ? r.outbound_role === 'offer'
+        : r.return_role === 'offer'
+    ).length,
+    totalSeatsOpen: activeInDirection.reduce((sum, r) => {
+      const isDriver =
+        direction === 'outbound'
+          ? r.outbound_role === 'offer'
+          : r.return_role === 'offer';
+      if (!isDriver) return sum;
+      const total = direction === 'outbound' ? r.vagas_ida : r.vagas_volta;
+      const remaining = Math.max(0, total - getConfirmed(r.id, trecho));
+      return sum + remaining;
+    }, 0),
+    needingRide: activeInDirection.filter((r) =>
+      direction === 'outbound'
+        ? r.outbound_role === 'need'
+        : r.return_role === 'need'
+    ).length,
+    splittingApp: activeInDirection.filter((r) =>
+      direction === 'outbound'
+        ? r.outbound_role === 'split'
+        : r.return_role === 'split'
+    ).length,
   };
 
   return c.json({
     direction,
     referenceSource,
-    me: meRow ? serializePublicParticipant(meRow, 0, true) : null,
+    pendingReceivedCount,
+    me: meRow
+      ? serializePublicParticipant(meRow, {
+          direction,
+          distanceKm: 0,
+          isMe: true,
+          confirmedIda: getConfirmed(meRow.id, 'ida'),
+          confirmedVolta: getConfirmed(meRow.id, 'volta'),
+        })
+      : null,
     stats,
     participants: mapped,
   });
@@ -182,6 +344,11 @@ participantsRoutes.post('/', async (c) => {
         phone,
         role,
         seats_available,
+        trip_scope,
+        outbound_role,
+        return_role,
+        vagas_ida,
+        vagas_volta,
         outbound_is_office,
         outbound_label,
         outbound_lat,
@@ -190,13 +357,19 @@ participantsRoutes.post('/', async (c) => {
         return_lat,
         return_lng,
         party_profile,
-        notes
+        notes,
+        migrated_v2
       )
       VALUES (
         ${d.fullName},
         ${d.phone},
         ${d.role},
         ${d.seatsAvailable},
+        ${d.tripScope},
+        ${d.outboundRole},
+        ${d.returnRole},
+        ${d.vagasIda},
+        ${d.vagasVolta},
         ${d.outboundIsOffice},
         ${d.outboundLabel},
         ${d.outboundLat},
@@ -205,14 +378,15 @@ participantsRoutes.post('/', async (c) => {
         ${d.returnLat},
         ${d.returnLng},
         ${d.partyProfile},
-        ${d.notes}
+        ${d.notes},
+        TRUE
       )
       RETURNING *
     `;
 
     return c.json(
       {
-        participant: serializePublicParticipant(created, 0, true),
+        participant: serializePublicParticipant(created, { isMe: true }),
         editToken: created.edit_token,
       },
       201
@@ -227,7 +401,7 @@ participantsRoutes.post('/', async (c) => {
       return c.json(
         {
           error:
-            'Ja existe um cadastro com este WhatsApp. Use a opcao "Recuperar meu cadastro" para editar seus dados.',
+            'Ja existe um cadastro com este WhatsApp. Use a opcao "Ja tenho cadastro" para editar seus dados.',
         },
         409
       );
@@ -268,7 +442,7 @@ participantsRoutes.post('/lookup', async (c) => {
   }
 
   return c.json({
-    participant: serializePublicParticipant(found, 0, true),
+    participant: serializePublicParticipant(found, { isMe: true }),
     editToken: found.edit_token,
   });
 });
@@ -298,6 +472,11 @@ participantsRoutes.put('/:id', async (c) => {
         phone = ${d.phone},
         role = ${d.role},
         seats_available = ${d.seatsAvailable},
+        trip_scope = ${d.tripScope},
+        outbound_role = ${d.outboundRole},
+        return_role = ${d.returnRole},
+        vagas_ida = ${d.vagasIda},
+        vagas_volta = ${d.vagasVolta},
         outbound_is_office = ${d.outboundIsOffice},
         outbound_label = ${d.outboundLabel},
         outbound_lat = ${d.outboundLat},
@@ -307,6 +486,7 @@ participantsRoutes.put('/:id', async (c) => {
         return_lng = ${d.returnLng},
         party_profile = ${d.partyProfile},
         notes = ${d.notes},
+        migrated_v2 = TRUE,
         updated_at = NOW()
       WHERE id = ${id} AND edit_token = ${editToken}
       RETURNING *
@@ -320,7 +500,7 @@ participantsRoutes.put('/:id', async (c) => {
     }
 
     return c.json({
-      participant: serializePublicParticipant(updated, 0, true),
+      participant: serializePublicParticipant(updated, { isMe: true }),
     });
   } catch (error: unknown) {
     const pgCode =
@@ -351,6 +531,10 @@ participantsRoutes.patch('/:id/seats', async (c) => {
   const body = await c.req.json().catch(() => null);
   const seats =
     body && typeof body === 'object' ? Number(body.seatsAvailable) : NaN;
+  const trecho =
+    body && typeof body === 'object' && (body.trecho === 'ida' || body.trecho === 'volta')
+      ? (body.trecho as 'ida' | 'volta')
+      : null;
 
   if (!Number.isInteger(seats) || seats < 0 || seats > 15) {
     return c.json(
@@ -359,24 +543,50 @@ participantsRoutes.patch('/:id/seats', async (c) => {
     );
   }
 
-  const [updated] = await sql<ParticipantRow[]>`
-    UPDATE participants
-    SET
-      seats_available = ${seats},
-      updated_at = NOW()
-    WHERE id = ${id} AND edit_token = ${editToken} AND role = 'offer'
-    RETURNING *
-  `;
+  let updated: ParticipantRow | undefined;
+
+  if (trecho === 'ida') {
+    [updated] = await sql<ParticipantRow[]>`
+      UPDATE participants
+      SET
+        vagas_ida = ${seats},
+        seats_available = GREATEST(${seats}, vagas_volta),
+        updated_at = NOW()
+      WHERE id = ${id} AND edit_token = ${editToken} AND outbound_role = 'offer'
+      RETURNING *
+    `;
+  } else if (trecho === 'volta') {
+    [updated] = await sql<ParticipantRow[]>`
+      UPDATE participants
+      SET
+        vagas_volta = ${seats},
+        seats_available = GREATEST(vagas_ida, ${seats}),
+        updated_at = NOW()
+      WHERE id = ${id} AND edit_token = ${editToken} AND return_role = 'offer'
+      RETURNING *
+    `;
+  } else {
+    [updated] = await sql<ParticipantRow[]>`
+      UPDATE participants
+      SET
+        vagas_ida = CASE WHEN outbound_role = 'offer' THEN ${seats} ELSE vagas_ida END,
+        vagas_volta = CASE WHEN return_role = 'offer' THEN ${seats} ELSE vagas_volta END,
+        seats_available = ${seats},
+        updated_at = NOW()
+      WHERE id = ${id} AND edit_token = ${editToken} AND (outbound_role = 'offer' OR return_role = 'offer')
+      RETURNING *
+    `;
+  }
 
   if (!updated) {
     return c.json(
-      { error: 'Cadastro de motorista nao encontrado ou token invalido.' },
+      { error: 'Cadastro de motorista nao encontrado para este trecho.' },
       404
     );
   }
 
   return c.json({
-    participant: serializePublicParticipant(updated, 0, true),
+    participant: serializePublicParticipant(updated, { isMe: true }),
   });
 });
 

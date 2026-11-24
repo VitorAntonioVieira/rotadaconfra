@@ -1,13 +1,20 @@
 import { config } from '../config';
 
-export type ParticipantRole = 'offer' | 'need' | 'split';
+export type TripScope = 'both' | 'outbound_only' | 'return_only';
+export type SegmentRole = 'offer' | 'need' | 'split' | 'none';
+export type LegacyRole = 'offer' | 'need' | 'split';
 export type PartyProfile = 'no_drink' | 'will_drink' | 'no_preference';
 
 export interface ValidatedParticipantInput {
   fullName: string;
   phone: string;
-  role: ParticipantRole;
+  tripScope: TripScope;
+  role: LegacyRole;
   seatsAvailable: number;
+  outboundRole: SegmentRole;
+  returnRole: SegmentRole;
+  vagasIda: number;
+  vagasVolta: number;
   outboundIsOffice: boolean;
   outboundLabel: string;
   outboundLat: number | null;
@@ -19,7 +26,12 @@ export interface ValidatedParticipantInput {
   notes: string;
 }
 
-const VALID_ROLES = new Set<ParticipantRole>(['offer', 'need', 'split']);
+const VALID_SCOPES = new Set<TripScope>([
+  'both',
+  'outbound_only',
+  'return_only',
+]);
+const VALID_ACTIVE_ROLES = new Set<LegacyRole>(['offer', 'need', 'split']);
 const VALID_PARTY_PROFILES = new Set<PartyProfile>([
   'no_drink',
   'will_drink',
@@ -49,6 +61,17 @@ function parseCoordinate(
   return num;
 }
 
+function parseSeats(value: unknown, label: string): { ok: true; value: number } | { ok: false; error: string } {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 15) {
+    return {
+      ok: false,
+      error: `Informe uma quantidade valida de vagas para ${label} (0 a 15).`,
+    };
+  }
+  return { ok: true, value: parsed };
+}
+
 export function validateParticipantInput(
   body: unknown
 ): { ok: true; data: ValidatedParticipantInput } | { ok: false; error: string } {
@@ -76,57 +99,116 @@ export function validateParticipantInput(
     };
   }
 
-  const role = input.role as ParticipantRole;
-  if (!VALID_ROLES.has(role)) {
-    return { ok: false, error: 'Selecione um papel valido.' };
+  const tripScope = (
+    typeof input.tripScope === 'string' ? input.tripScope : 'both'
+  ) as TripScope;
+  if (!VALID_SCOPES.has(tripScope)) {
+    return { ok: false, error: 'Selecione um tipo de trajeto valido.' };
   }
 
-  let seatsAvailable = 0;
-  if (role === 'offer') {
-    const parsedSeats = Number(input.seatsAvailable);
-    if (
-      !Number.isInteger(parsedSeats) ||
-      parsedSeats < 0 ||
-      parsedSeats > 15
-    ) {
+  const hasOutbound = tripScope === 'both' || tripScope === 'outbound_only';
+  const hasReturn = tripScope === 'both' || tripScope === 'return_only';
+
+  // Papel por trecho (com fallback para campo legado "role")
+  const fallbackRole = VALID_ACTIVE_ROLES.has(input.role as LegacyRole)
+    ? (input.role as LegacyRole)
+    : 'need';
+
+  let outboundRole: SegmentRole = 'none';
+  let returnRole: SegmentRole = 'none';
+
+  if (hasOutbound) {
+    const candidate = (input.outboundRole ?? fallbackRole) as LegacyRole;
+    if (!VALID_ACTIVE_ROLES.has(candidate)) {
+      return { ok: false, error: 'Selecione como voce participa na ida.' };
+    }
+    outboundRole = candidate;
+  }
+
+  if (hasReturn) {
+    const candidate = (input.returnRole ?? fallbackRole) as SegmentRole;
+    if (candidate === 'none') {
+      returnRole = 'none';
+    } else if (!VALID_ACTIVE_ROLES.has(candidate as LegacyRole)) {
+      return { ok: false, error: 'Selecione como voce participa na volta.' };
+    } else {
+      returnRole = candidate;
+    }
+  }
+
+  // Se o usuario marcou "both" mas na volta escolheu "none" (ex: volto de app por conta propria), ajusta tripScope
+  const effectiveScope: TripScope =
+    outboundRole !== 'none' && returnRole !== 'none'
+      ? 'both'
+      : outboundRole !== 'none'
+        ? 'outbound_only'
+        : 'return_only';
+
+  if (outboundRole === 'none' && returnRole === 'none') {
+    return {
+      ok: false,
+      error: 'Selecione ao menos um trecho (ida ou volta) para participar.',
+    };
+  }
+
+  let vagasIda = 0;
+  if (outboundRole === 'offer') {
+    const res = parseSeats(input.vagasIda ?? input.seatsAvailable ?? 3, 'a ida');
+    if (!res.ok) return res;
+    vagasIda = res.value;
+  }
+
+  let vagasVolta = 0;
+  if (returnRole === 'offer') {
+    const res = parseSeats(input.vagasVolta ?? input.seatsAvailable ?? 3, 'a volta');
+    if (!res.ok) return res;
+    vagasVolta = res.value;
+  }
+
+  // Localizacao da ida
+  let outboundIsOffice = false;
+  let outboundLabel = '';
+  let outboundLat: number | null = null;
+  let outboundLng: number | null = null;
+
+  if (outboundRole !== 'none') {
+    outboundIsOffice = Boolean(input.outboundIsOffice);
+    outboundLabel =
+      typeof input.outboundLabel === 'string' ? input.outboundLabel.trim() : '';
+    outboundLat = parseCoordinate(input.outboundLat, -90, 90);
+    outboundLng = parseCoordinate(input.outboundLng, -180, 180);
+
+    if (outboundIsOffice) {
+      outboundLabel = config.spsOffice.label;
+      outboundLat = config.spsOffice.lat;
+      outboundLng = config.spsOffice.lng;
+    }
+
+    if (outboundLabel.length < 2 || outboundLabel.length > 200) {
       return {
         ok: false,
-        error: 'Informe uma quantidade valida de vagas (0 a 15).',
+        error: 'Informe o local de saida na ida.',
       };
     }
-    seatsAvailable = parsedSeats;
   }
 
-  const outboundIsOffice = Boolean(input.outboundIsOffice);
-  let outboundLabel =
-    typeof input.outboundLabel === 'string' ? input.outboundLabel.trim() : '';
-  let outboundLat = parseCoordinate(input.outboundLat, -90, 90);
-  let outboundLng = parseCoordinate(input.outboundLng, -180, 180);
+  // Localizacao da volta
+  let returnLabel = '';
+  let returnLat: number | null = null;
+  let returnLng: number | null = null;
 
-  if (outboundIsOffice) {
-    outboundLabel = config.spsOffice.label;
-    outboundLat = config.spsOffice.lat;
-    outboundLng = config.spsOffice.lng;
+  if (returnRole !== 'none') {
+    returnLabel =
+      typeof input.returnLabel === 'string' ? input.returnLabel.trim() : '';
+    if (returnLabel.length < 2 || returnLabel.length > 200) {
+      return {
+        ok: false,
+        error: 'Informe o bairro ou cidade de destino na volta.',
+      };
+    }
+    returnLat = parseCoordinate(input.returnLat, -90, 90);
+    returnLng = parseCoordinate(input.returnLng, -180, 180);
   }
-
-  if (outboundLabel.length < 2 || outboundLabel.length > 200) {
-    return {
-      ok: false,
-      error: 'Informe o local de saida na ida.',
-    };
-  }
-
-  const returnLabel =
-    typeof input.returnLabel === 'string' ? input.returnLabel.trim() : '';
-  if (returnLabel.length < 2 || returnLabel.length > 200) {
-    return {
-      ok: false,
-      error: 'Informe o bairro ou cidade de destino na volta.',
-    };
-  }
-
-  const returnLat = parseCoordinate(input.returnLat, -90, 90);
-  const returnLng = parseCoordinate(input.returnLng, -180, 180);
 
   const partyProfile = input.partyProfile as PartyProfile;
   if (!VALID_PARTY_PROFILES.has(partyProfile)) {
@@ -136,13 +218,27 @@ export function validateParticipantInput(
   const notes =
     typeof input.notes === 'string' ? input.notes.trim().slice(0, 200) : '';
 
+  // Campos legados sincronizados para compatibilidade
+  const legacyRole: LegacyRole =
+    outboundRole === 'offer' || returnRole === 'offer'
+      ? 'offer'
+      : outboundRole !== 'none'
+        ? outboundRole
+        : (returnRole as LegacyRole);
+  const legacySeats = Math.max(vagasIda, vagasVolta);
+
   return {
     ok: true,
     data: {
       fullName,
       phone,
-      role,
-      seatsAvailable,
+      tripScope: effectiveScope,
+      role: legacyRole,
+      seatsAvailable: legacySeats,
+      outboundRole,
+      returnRole,
+      vagasIda,
+      vagasVolta,
       outboundIsOffice,
       outboundLabel,
       outboundLat,

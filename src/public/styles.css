@@ -492,26 +492,51 @@ input {
   border-radius: var(--radius-control);
 }
 
+.direction-tabs.tabs-three {
+  grid-template-columns: 1fr 1fr 1.35fr;
+}
+
 .tab-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 6px;
   border: none;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 10px 8px;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
 }
 
 .tab-btn.active {
   background: var(--color-primary);
   color: #FFFFFF;
   box-shadow: 0 2px 8px rgba(0, 136, 206, 0.28);
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-danger);
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tab-btn.active .tab-badge {
+  background: #FFFFFF;
+  color: var(--color-primary);
 }
 
 .filter-group {
@@ -1021,4 +1046,250 @@ input {
   z-index: 80;
   max-width: calc(100vw - 32px);
   text-align: center;
+}
+
+/* ---------------- Segment Boxes & Trip Scope ---------------- */
+.scope-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.scope-option {
+  cursor: pointer;
+  display: block;
+}
+
+.scope-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scope-option span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.scope-option input:checked + span {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.segment-box {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.segment-box-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.segment-box-header svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.info-callout {
+  margin: 8px 0 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-cyan-soft);
+  color: var(--color-navy);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* ---------------- Card Action Splits & Request States ---------------- */
+.ride-actions-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+}
+
+.request-state-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: var(--radius-control);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.status-pill-pending {
+  background: var(--color-cyan-soft);
+  color: var(--color-navy);
+}
+
+.status-pill-confirmed {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.status-pill-rejected {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.status-pill-full {
+  background: #EEF2F6;
+  color: var(--color-text-secondary);
+}
+
+.btn-link-muted {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link-muted:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+  text-decoration: none;
+}
+
+/* ---------------- Minhas Caronas Panel ---------------- */
+.my-rides-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: 16px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panel-section-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-section-title svg {
+  color: var(--color-primary);
+}
+
+.panel-subblock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-subblock-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.request-item {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  border-radius: var(--radius-control);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.request-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.request-item-name {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--color-navy);
+}
+
+.request-item-meta {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.request-item-meta svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.request-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.panel-empty-text {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--color-text-secondary);
 }

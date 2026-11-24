@@ -6,6 +6,7 @@ import { initDatabase } from './db/schema';
 import { authRoutes } from './routes/auth';
 import { geocodeRoutes } from './routes/geocode';
 import { participantsRoutes } from './routes/participants';
+import { requestsRoutes } from './routes/requests';
 import { AppPage } from './views/app';
 
 const app = new Hono();
@@ -17,6 +18,7 @@ app.get('/api/health', (c) => {
 app.route('/api/auth', authRoutes);
 app.route('/api/geocode', geocodeRoutes);
 app.route('/api/participants', participantsRoutes);
+app.route('/api/requests', requestsRoutes);
 
 app.use(
   '/static/*',

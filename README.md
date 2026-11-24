@@ -67,7 +67,8 @@ O código de acesso padrão é `confra2026` (configurável via `ACCESS_CODE`).
     ├── routes/
     │   ├── auth.ts               # Verificação do código de acesso e config
     │   ├── geocode.ts            # Endpoint de busca de localização
-    │   └── participants.ts       # CRUD, recuperação por telefone, vagas e ordenação por distância
+    │   ├── participants.ts       # CRUD, trechos independentes (ida/volta), vagas e Haversine
+    │   └── requests.ts           # Solicitações de carona (pedir, confirmar, recusar, cancelar)
     ├── views/
     │   ├── layout.tsx            # Template HTML base
     │   └── app.tsx               # Interface principal e modal de cadastro
