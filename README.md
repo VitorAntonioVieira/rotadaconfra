@@ -38,6 +38,7 @@ O código de acesso padrão é `confra2026` (configurável via `ACCESS_CODE`).
 | --- | --- | --- |
 | `PORT` | `3000` | Porta HTTP da aplicação |
 | `DATABASE_URL` | `postgres://rota:rota_secret@db:5432/rota_da_confra` | String de conexão do PostgreSQL |
+| `PGDATA_PATH` | `./data/postgres` | Diretório físico no disco do host/VPS para persistir os dados do PostgreSQL (em VPS, recomenda-se `/var/lib/rota-da-confra/postgres`) |
 | `ACCESS_CODE` | `confra2026` | Código de acesso único para colaboradores |
 | `SPS_OFFICE_LABEL` | `Escritório SPS (Jardim Limoeiro, São José dos Campos - SP)` | Rótulo da opção rápida de saída |
 | `SPS_OFFICE_LAT` | `-23.2370` | Latitude aproximada do escritório |

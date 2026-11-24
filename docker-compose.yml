@@ -6,8 +6,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-rota}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rota_secret}
       POSTGRES_DB: ${POSTGRES_DB:-rota_da_confra}
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${PGDATA_PATH:-./data/postgres}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rota} -d ${POSTGRES_DB:-rota_da_confra}"]
       interval: 5s
@@ -35,9 +36,6 @@ services:
       SPS_OFFICE_LABEL: ${SPS_OFFICE_LABEL:-Escritório SPS (Jardim Limoeiro, São José dos Campos - SP)}
       SPS_OFFICE_LAT: ${SPS_OFFICE_LAT:--23.2370}
       SPS_OFFICE_LNG: ${SPS_OFFICE_LNG:--45.9087}
-
-volumes:
-  postgres_data:
 
 networks:
   proxy-net:
