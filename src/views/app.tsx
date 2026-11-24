@@ -354,20 +354,25 @@ export function AppPage() {
         </main>
       </div>
 
-      {/* Modal / Bottom Sheet de Cadastro e Edicao */}
-      <div id="profile-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="modal-sheet">
-          <div class="modal-header">
-            <div>
-              <h2 id="modal-title" class="modal-title">Cadastrar minha rota</h2>
-              <p id="modal-subtitle" class="modal-subtitle">
-                Informe apenas bairro ou cidade para manter sua privacidade.
-              </p>
-            </div>
-            <button id="modal-close-btn" type="button" class="icon-btn" aria-label="Fechar">
+      {/* Tela em Stack de Cadastro e Edicao */}
+      <div
+        id="profile-stack-screen"
+        class="stack-screen hidden"
+        role="region"
+        aria-labelledby="stack-title"
+        aria-hidden="true"
+      >
+        <header class="stack-header">
+          <div class="container stack-header-inner">
+            <button
+              id="stack-back-btn"
+              type="button"
+              class="stack-back-btn"
+              aria-label="Voltar para a tela inicial"
+            >
               <svg
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -375,333 +380,344 @@ export function AppPage() {
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
+                <path d="m12 19-7-7 7-7" />
+                <path d="M19 12H5" />
               </svg>
+              <span>Voltar</span>
             </button>
-          </div>
-
-          <div id="modal-mode-switch" class="mode-switch">
-            <button type="button" id="mode-new-btn" class="mode-btn active">
-              Novo cadastro
-            </button>
-            <button type="button" id="mode-recover-btn" class="mode-btn">
-              Já tenho cadastro
-            </button>
-          </div>
-
-          {/* Formulario de Recuperacao por Telefone */}
-          <form id="recover-form" class="modal-form hidden" novalidate>
-            <div class="form-field">
-              <label class="field-label" for="recover-phone-input">
-                WhatsApp cadastrado
-              </label>
-              <input
-                id="recover-phone-input"
-                type="tel"
-                class="text-input"
-                placeholder="(12) 99999-9999"
-                inputmode="tel"
-                required
-              />
-              <span class="field-hint">
-                Informe o número utilizado no seu cadastro para editar seus dados ou gerenciar caronas.
-              </span>
-            </div>
-            <p id="recover-error" class="form-error hidden"></p>
-            <button id="recover-submit-btn" type="submit" class="btn btn-primary btn-full">
-              Encontrar meu cadastro
-            </button>
-          </form>
-
-          {/* Formulario Principal do Participante */}
-          <form id="profile-form" class="modal-form" novalidate>
-            <div class="form-field">
-              <label class="field-label" for="input-full-name">
-                Nome completo
-              </label>
-              <input
-                id="input-full-name"
-                type="text"
-                class="text-input"
-                placeholder="Ex: Mariana Oliveira"
-                maxlength={120}
-                required
-              />
-            </div>
-
-            <div class="form-field">
-              <label class="field-label" for="input-phone">
-                Telefone / WhatsApp
-              </label>
-              <input
-                id="input-phone"
-                type="tel"
-                class="text-input"
-                placeholder="(12) 99999-9999"
-                inputmode="tel"
-                maxlength={16}
-                required
-              />
-            </div>
-
-            {/* Perfil na festa */}
-            <div class="form-field">
-              <span class="field-label">Perfil na festa</span>
-              <div class="option-grid">
-                <label class="option-card">
-                  <input type="radio" name="partyProfile" value="no_drink" />
-                  <span class="option-card-body">
-                    <span class="option-card-title">Não vou beber (motorista)</span>
-                  </span>
-                </label>
-                <label class="option-card">
-                  <input type="radio" name="partyProfile" value="will_drink" />
-                  <span class="option-card-body">
-                    <span class="option-card-title">Vou beber na festa</span>
-                    <span class="option-card-desc">Você pode oferecer carona na ida e voltar de carona ou app</span>
-                  </span>
-                </label>
-                <label class="option-card">
-                  <input type="radio" name="partyProfile" value="no_preference" checked />
-                  <span class="option-card-body">
-                    <span class="option-card-title">Sem preferência</span>
-                  </span>
-                </label>
-              </div>
-              <p id="drink-helper-note" class="info-callout hidden">
-                Como você vai beber, a volta foi configurada separadamente da ida. Ajuste abaixo se preferir.
+            <div class="stack-header-titles">
+              <h2 id="stack-title" class="stack-title">Cadastrar minha rota</h2>
+              <p id="stack-subtitle" class="stack-subtitle">
+                Informe apenas bairro ou cidade para manter sua privacidade.
               </p>
             </div>
+          </div>
+        </header>
 
-            {/* Selecao de Trechos */}
-            <div class="form-field">
-              <span class="field-label">Quais trechos você quer organizar?</span>
-              <div class="scope-grid">
-                <label class="scope-option">
-                  <input type="radio" name="tripScope" value="both" checked />
-                  <span>Ida e volta</span>
-                </label>
-                <label class="scope-option">
-                  <input type="radio" name="tripScope" value="outbound_only" />
-                  <span>Apenas ida</span>
-                </label>
-                <label class="scope-option">
-                  <input type="radio" name="tripScope" value="return_only" />
-                  <span>Apenas volta</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Secao IDA */}
-            <div id="outbound-section" class="segment-box">
-              <div class="segment-box-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
-                <span>Trajeto de Ida (para o Espaço Lagoon)</span>
-              </div>
-
-              <div class="form-field">
-                <span class="field-label">Como você participa na ida?</span>
-                <div class="option-grid">
-                  <label class="option-card">
-                    <input type="radio" name="outboundRole" value="offer" checked />
-                    <span class="option-card-body">
-                      <span class="option-card-title">Ofereço carona</span>
-                      <span class="option-card-desc">Tenho carro com vagas na ida</span>
-                    </span>
-                  </label>
-                  <label class="option-card">
-                    <input type="radio" name="outboundRole" value="need" />
-                    <span class="option-card-body">
-                      <span class="option-card-title">Preciso de carona</span>
-                      <span class="option-card-desc">Procuro lugar em um carro na ida</span>
-                    </span>
-                  </label>
-                  <label class="option-card">
-                    <input type="radio" name="outboundRole" value="split" />
-                    <span class="option-card-body">
-                      <span class="option-card-title">Quero dividir carro de app</span>
-                      <span class="option-card-desc">Compartilhar Uber ou 99 na ida</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div id="outbound-seats-field" class="form-field">
-                <label class="field-label" for="input-seats-ida">
-                  Vagas disponíveis na ida
-                </label>
-                <div class="stepper">
-                  <button type="button" id="seats-ida-dec" class="stepper-btn" aria-label="Diminuir vagas na ida">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M5 12h14" />
-                    </svg>
-                  </button>
-                  <input
-                    id="input-seats-ida"
-                    type="number"
-                    min={0}
-                    max={15}
-                    value={3}
-                    class="stepper-input"
-                  />
-                  <button type="button" id="seats-ida-inc" class="stepper-btn" aria-label="Aumentar vagas na ida">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M5 12h14" />
-                      <path d="M12 5v14" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <div class="form-field">
-                <div class="field-label-row">
-                  <label class="field-label" for="input-outbound">
-                    Local de saída (ida)
-                  </label>
-                  <button type="button" id="btn-office-quick" class="quick-link-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
-                      <path d="M9 22v-4h6v4" />
-                    </svg>
-                    <span>Escritório SPS</span>
-                  </button>
-                </div>
-                <div class="autocomplete-wrap">
-                  <input
-                    id="input-outbound"
-                    type="text"
-                    class="text-input"
-                    placeholder="Digite bairro e cidade (ex: Jardim Aquarius, SJC)"
-                    autocomplete="off"
-                  />
-                  <div id="outbound-suggestions" class="suggestions-list hidden"></div>
-                </div>
-                <span id="outbound-geo-status" class="geo-status"></span>
-              </div>
-            </div>
-
-            {/* Secao VOLTA */}
-            <div id="return-section" class="segment-box">
-              <div class="segment-box-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M19 12H5" />
-                  <path d="m12 19-7-7 7-7" />
-                </svg>
-                <span>Trajeto de Volta (saindo do Espaço Lagoon)</span>
-              </div>
-
-              <div class="form-field">
-                <span class="field-label">Como você participa na volta?</span>
-                <div class="option-grid">
-                  <label class="option-card">
-                    <input type="radio" name="returnRole" value="offer" checked />
-                    <span class="option-card-body">
-                      <span class="option-card-title">Ofereço carona</span>
-                      <span class="option-card-desc">Tenho carro com vagas na volta</span>
-                    </span>
-                  </label>
-                  <label class="option-card">
-                    <input type="radio" name="returnRole" value="need" />
-                    <span class="option-card-body">
-                      <span class="option-card-title">Preciso de carona</span>
-                      <span class="option-card-desc">Procuro lugar em um carro na volta</span>
-                    </span>
-                  </label>
-                  <label class="option-card">
-                    <input type="radio" name="returnRole" value="split" />
-                    <span class="option-card-body">
-                      <span class="option-card-title">Quero dividir carro de app</span>
-                      <span class="option-card-desc">Compartilhar Uber ou 99 na volta</span>
-                    </span>
-                  </label>
-                  <label id="return-role-none-option" class="option-card">
-                    <input type="radio" name="returnRole" value="none" />
-                    <span class="option-card-body">
-                      <span class="option-card-title">Não preciso (volto de app por conta própria)</span>
-                      <span class="option-card-desc">Não aparecer na listagem de volta</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div id="return-seats-field" class="form-field">
-                <label class="field-label" for="input-seats-volta">
-                  Vagas disponíveis na volta
-                </label>
-                <div class="stepper">
-                  <button type="button" id="seats-volta-dec" class="stepper-btn" aria-label="Diminuir vagas na volta">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M5 12h14" />
-                    </svg>
-                  </button>
-                  <input
-                    id="input-seats-volta"
-                    type="number"
-                    min={0}
-                    max={15}
-                    value={3}
-                    class="stepper-input"
-                  />
-                  <button type="button" id="seats-volta-inc" class="stepper-btn" aria-label="Aumentar vagas na volta">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M5 12h14" />
-                      <path d="M12 5v14" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <div id="return-location-field" class="form-field">
-                <label class="field-label" for="input-return">
-                  Local de destino (volta)
-                </label>
-                <div class="autocomplete-wrap">
-                  <input
-                    id="input-return"
-                    type="text"
-                    class="text-input"
-                    placeholder="Digite bairro e cidade de destino"
-                    autocomplete="off"
-                  />
-                  <div id="return-suggestions" class="suggestions-list hidden"></div>
-                </div>
-                <span id="return-geo-status" class="geo-status"></span>
-              </div>
-            </div>
-
-            {/* Observacao */}
-            <div class="form-field">
-              <label class="field-label" for="input-notes">
-                Observação curta (opcional)
-              </label>
-              <input
-                id="input-notes"
-                type="text"
-                class="text-input"
-                placeholder="Ex: Saio às 12h15, passo pela Dutra"
-                maxlength={160}
-              />
-            </div>
-
-            <p id="profile-error" class="form-error hidden"></p>
-
-            <div class="modal-actions">
-              <button id="profile-submit-btn" type="submit" class="btn btn-primary btn-full">
-                Salvar cadastro
+        <div class="container stack-content">
+          <div class="stack-card">
+            <div id="stack-mode-switch" class="mode-switch">
+              <button type="button" id="mode-new-btn" class="mode-btn active">
+                Novo cadastro
               </button>
-              <button
-                id="profile-delete-btn"
-                type="button"
-                class="btn btn-danger-ghost btn-full hidden"
-              >
-                Remover meu cadastro
+              <button type="button" id="mode-recover-btn" class="mode-btn">
+                Já tenho cadastro
               </button>
             </div>
-          </form>
+
+            {/* Formulario de Recuperacao por Telefone */}
+            <form id="recover-form" class="modal-form hidden" novalidate>
+              <div class="form-field">
+                <label class="field-label" for="recover-phone-input">
+                  WhatsApp cadastrado
+                </label>
+                <input
+                  id="recover-phone-input"
+                  type="tel"
+                  class="text-input"
+                  placeholder="(12) 99999-9999"
+                  inputmode="tel"
+                  required
+                />
+                <span class="field-hint">
+                  Informe o número utilizado no seu cadastro para editar seus dados ou gerenciar caronas.
+                </span>
+              </div>
+              <p id="recover-error" class="form-error hidden"></p>
+              <button id="recover-submit-btn" type="submit" class="btn btn-primary btn-full">
+                Encontrar meu cadastro
+              </button>
+            </form>
+
+            {/* Formulario Principal do Participante */}
+            <form id="profile-form" class="modal-form" novalidate>
+              <div class="form-field">
+                <label class="field-label" for="input-full-name">
+                  Nome completo
+                </label>
+                <input
+                  id="input-full-name"
+                  type="text"
+                  class="text-input"
+                  placeholder="Ex: Mariana Oliveira"
+                  maxlength={120}
+                  required
+                />
+              </div>
+
+              <div class="form-field">
+                <label class="field-label" for="input-phone">
+                  Telefone / WhatsApp
+                </label>
+                <input
+                  id="input-phone"
+                  type="tel"
+                  class="text-input"
+                  placeholder="(12) 99999-9999"
+                  inputmode="tel"
+                  maxlength={16}
+                  required
+                />
+              </div>
+
+              {/* Perfil na festa */}
+              <div class="form-field">
+                <span class="field-label">Perfil na festa</span>
+                <div class="option-grid">
+                  <label class="option-card">
+                    <input type="radio" name="partyProfile" value="no_drink" />
+                    <span class="option-card-body">
+                      <span class="option-card-title">Não vou beber (motorista)</span>
+                    </span>
+                  </label>
+                  <label class="option-card">
+                    <input type="radio" name="partyProfile" value="will_drink" />
+                    <span class="option-card-body">
+                      <span class="option-card-title">Vou beber na festa</span>
+                      <span class="option-card-desc">Você pode oferecer carona na ida e voltar de carona ou app</span>
+                    </span>
+                  </label>
+                  <label class="option-card">
+                    <input type="radio" name="partyProfile" value="no_preference" checked />
+                    <span class="option-card-body">
+                      <span class="option-card-title">Sem preferência</span>
+                    </span>
+                  </label>
+                </div>
+                <p id="drink-helper-note" class="info-callout hidden">
+                  Como você vai beber, a volta foi configurada separadamente da ida. Ajuste abaixo se preferir.
+                </p>
+              </div>
+
+              {/* Selecao de Trechos */}
+              <div class="form-field">
+                <span class="field-label">Quais trechos você quer organizar?</span>
+                <div class="scope-grid">
+                  <label class="scope-option">
+                    <input type="radio" name="tripScope" value="both" checked />
+                    <span>Ida e volta</span>
+                  </label>
+                  <label class="scope-option">
+                    <input type="radio" name="tripScope" value="outbound_only" />
+                    <span>Apenas ida</span>
+                  </label>
+                  <label class="scope-option">
+                    <input type="radio" name="tripScope" value="return_only" />
+                    <span>Apenas volta</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Secao IDA */}
+              <div id="outbound-section" class="segment-box">
+                <div class="segment-box-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                  <span>Trajeto de Ida (para o Espaço Lagoon)</span>
+                </div>
+
+                <div class="form-field">
+                  <span class="field-label">Como você participa na ida?</span>
+                  <div class="option-grid">
+                    <label class="option-card">
+                      <input type="radio" name="outboundRole" value="offer" checked />
+                      <span class="option-card-body">
+                        <span class="option-card-title">Ofereço carona</span>
+                        <span class="option-card-desc">Tenho carro com vagas na ida</span>
+                      </span>
+                    </label>
+                    <label class="option-card">
+                      <input type="radio" name="outboundRole" value="need" />
+                      <span class="option-card-body">
+                        <span class="option-card-title">Preciso de carona</span>
+                        <span class="option-card-desc">Procuro lugar em um carro na ida</span>
+                      </span>
+                    </label>
+                    <label class="option-card">
+                      <input type="radio" name="outboundRole" value="split" />
+                      <span class="option-card-body">
+                        <span class="option-card-title">Quero dividir carro de app</span>
+                        <span class="option-card-desc">Compartilhar Uber ou 99 na ida</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div id="outbound-seats-field" class="form-field">
+                  <label class="field-label" for="input-seats-ida">
+                    Vagas disponíveis na ida
+                  </label>
+                  <div class="stepper">
+                    <button type="button" id="seats-ida-dec" class="stepper-btn" aria-label="Diminuir vagas na ida">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <input
+                      id="input-seats-ida"
+                      type="number"
+                      min={0}
+                      max={15}
+                      value={3}
+                      class="stepper-input"
+                    />
+                    <button type="button" id="seats-ida-inc" class="stepper-btn" aria-label="Aumentar vagas na ida">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14" />
+                        <path d="M12 5v14" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-field">
+                  <div class="field-label-row">
+                    <label class="field-label" for="input-outbound">
+                      Local de saída (ida)
+                    </label>
+                    <button type="button" id="btn-office-quick" class="quick-link-btn">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+                        <path d="M9 22v-4h6v4" />
+                      </svg>
+                      <span>Escritório SPS</span>
+                    </button>
+                  </div>
+                  <div class="autocomplete-wrap">
+                    <input
+                      id="input-outbound"
+                      type="text"
+                      class="text-input"
+                      placeholder="Digite bairro e cidade (ex: Jardim Aquarius, SJC)"
+                      autocomplete="off"
+                    />
+                    <div id="outbound-suggestions" class="suggestions-list hidden"></div>
+                  </div>
+                  <span id="outbound-geo-status" class="geo-status"></span>
+                </div>
+              </div>
+
+              {/* Secao VOLTA */}
+              <div id="return-section" class="segment-box">
+                <div class="segment-box-header">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5" />
+                    <path d="m12 19-7-7 7-7" />
+                  </svg>
+                  <span>Trajeto de Volta (saindo do Espaço Lagoon)</span>
+                </div>
+
+                <div class="form-field">
+                  <span class="field-label">Como você participa na volta?</span>
+                  <div class="option-grid">
+                    <label class="option-card">
+                      <input type="radio" name="returnRole" value="offer" checked />
+                      <span class="option-card-body">
+                        <span class="option-card-title">Ofereço carona</span>
+                        <span class="option-card-desc">Tenho carro com vagas na volta</span>
+                      </span>
+                    </label>
+                    <label class="option-card">
+                      <input type="radio" name="returnRole" value="need" />
+                      <span class="option-card-body">
+                        <span class="option-card-title">Preciso de carona</span>
+                        <span class="option-card-desc">Procuro lugar em um carro na volta</span>
+                      </span>
+                    </label>
+                    <label class="option-card">
+                      <input type="radio" name="returnRole" value="split" />
+                      <span class="option-card-body">
+                        <span class="option-card-title">Quero dividir carro de app</span>
+                        <span class="option-card-desc">Compartilhar Uber ou 99 na volta</span>
+                      </span>
+                    </label>
+                    <label id="return-role-none-option" class="option-card">
+                      <input type="radio" name="returnRole" value="none" />
+                      <span class="option-card-body">
+                        <span class="option-card-title">Não preciso (volto de app por conta própria)</span>
+                        <span class="option-card-desc">Não aparecer na listagem de volta</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div id="return-seats-field" class="form-field">
+                  <label class="field-label" for="input-seats-volta">
+                    Vagas disponíveis na volta
+                  </label>
+                  <div class="stepper">
+                    <button type="button" id="seats-volta-dec" class="stepper-btn" aria-label="Diminuir vagas na volta">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14" />
+                      </svg>
+                    </button>
+                    <input
+                      id="input-seats-volta"
+                      type="number"
+                      min={0}
+                      max={15}
+                      value={3}
+                      class="stepper-input"
+                    />
+                    <button type="button" id="seats-volta-inc" class="stepper-btn" aria-label="Aumentar vagas na volta">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14" />
+                        <path d="M12 5v14" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="return-location-field" class="form-field">
+                  <label class="field-label" for="input-return">
+                    Local de destino (volta)
+                  </label>
+                  <div class="autocomplete-wrap">
+                    <input
+                      id="input-return"
+                      type="text"
+                      class="text-input"
+                      placeholder="Digite bairro e cidade de destino"
+                      autocomplete="off"
+                    />
+                    <div id="return-suggestions" class="suggestions-list hidden"></div>
+                  </div>
+                  <span id="return-geo-status" class="geo-status"></span>
+                </div>
+              </div>
+
+              {/* Observacao */}
+              <div class="form-field">
+                <label class="field-label" for="input-notes">
+                  Observação curta (opcional)
+                </label>
+                <input
+                  id="input-notes"
+                  type="text"
+                  class="text-input"
+                  placeholder="Ex: Saio às 12h15, passo pela Dutra"
+                  maxlength={160}
+                />
+              </div>
+
+              <p id="profile-error" class="form-error hidden"></p>
+
+              <div class="modal-actions">
+                <button id="profile-submit-btn" type="submit" class="btn btn-primary btn-full">
+                  Salvar cadastro
+                </button>
+                <button
+                  id="profile-delete-btn"
+                  type="button"
+                  class="btn btn-danger-ghost btn-full hidden"
+                >
+                  Remover meu cadastro
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 

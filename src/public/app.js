@@ -101,11 +101,11 @@
     filterOnlySeats: document.getElementById('filter-only-seats'),
     filterNoDrink: document.getElementById('filter-no-drink'),
 
-    profileModal: document.getElementById('profile-modal'),
-    modalTitle: document.getElementById('modal-title'),
-    modalSubtitle: document.getElementById('modal-subtitle'),
-    modalCloseBtn: document.getElementById('modal-close-btn'),
-    modalModeSwitch: document.getElementById('modal-mode-switch'),
+    profileStackScreen: document.getElementById('profile-stack-screen'),
+    stackTitle: document.getElementById('stack-title'),
+    stackSubtitle: document.getElementById('stack-subtitle'),
+    stackBackBtn: document.getElementById('stack-back-btn'),
+    stackModeSwitch: document.getElementById('stack-mode-switch'),
     modeNewBtn: document.getElementById('mode-new-btn'),
     modeRecoverBtn: document.getElementById('mode-recover-btn'),
 
@@ -1035,7 +1035,12 @@
     }
   }
 
-  function openProfileModal(mode) {
+  let stackCloseTimer = null;
+
+  function openProfileModal(mode, options = {}) {
+    const pushHistory = options.pushHistory !== false;
+    clearTimeout(stackCloseTimer);
+
     el.profileError.classList.add('hidden');
     el.recoverError.classList.add('hidden');
     el.drinkHelperNote.classList.add('hidden');
@@ -1044,9 +1049,9 @@
 
     if (mode === 'edit' && state.me) {
       state.isEditing = true;
-      el.modalTitle.textContent = 'Editar meu cadastro';
-      el.modalSubtitle.textContent = 'Configure ida e volta de forma independente.';
-      el.modalModeSwitch.classList.add('hidden');
+      el.stackTitle.textContent = 'Editar meu cadastro';
+      el.stackSubtitle.textContent = 'Configure ida e volta de forma independente.';
+      el.stackModeSwitch.classList.add('hidden');
       el.recoverForm.classList.add('hidden');
       el.profileForm.classList.remove('hidden');
       el.profileDeleteBtn.classList.remove('hidden');
@@ -1104,10 +1109,11 @@
       syncFormVisibility();
     } else {
       state.isEditing = false;
-      el.modalTitle.textContent = 'Cadastrar minha rota';
-      el.modalSubtitle.textContent =
+      el.stackTitle.textContent =
+        mode === 'recover' ? 'Recuperar meu cadastro' : 'Cadastrar minha rota';
+      el.stackSubtitle.textContent =
         'Informe apenas bairro ou cidade para manter sua privacidade.';
-      el.modalModeSwitch.classList.remove('hidden');
+      el.stackModeSwitch.classList.remove('hidden');
       el.profileDeleteBtn.classList.add('hidden');
       el.profileSubmitBtn.textContent = 'Salvar cadastro';
 
@@ -1129,15 +1135,44 @@
       switchModalMode(mode === 'recover' ? 'recover' : 'new');
     }
 
+    const wasAlreadyOpen = state.modalOpen;
     state.modalOpen = true;
-    el.profileModal.classList.remove('hidden');
+    el.profileStackScreen.classList.remove('hidden');
+    el.profileStackScreen.setAttribute('aria-hidden', 'false');
+    el.profileStackScreen.scrollTop = 0;
     document.body.style.overflow = 'hidden';
+
+    requestAnimationFrame(() => {
+      el.profileStackScreen.classList.add('is-open');
+    });
+
+    if (pushHistory && !wasAlreadyOpen && window.history && window.history.pushState) {
+      window.history.pushState({ stack: 'profile' }, '');
+    }
   }
 
-  function closeProfileModal() {
+  function closeProfileModal(fromPopState = false) {
+    if (!state.modalOpen) return;
     state.modalOpen = false;
-    el.profileModal.classList.add('hidden');
+    el.profileStackScreen.classList.remove('is-open');
+    el.profileStackScreen.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+
+    clearTimeout(stackCloseTimer);
+    stackCloseTimer = setTimeout(() => {
+      if (!state.modalOpen) {
+        el.profileStackScreen.classList.add('hidden');
+      }
+    }, 250);
+
+    if (
+      !fromPopState &&
+      window.history &&
+      window.history.state &&
+      window.history.state.stack === 'profile'
+    ) {
+      window.history.back();
+    }
   }
 
   function switchModalMode(mode) {
@@ -1146,6 +1181,11 @@
     el.modeRecoverBtn.classList.toggle('active', isRecover);
     el.profileForm.classList.toggle('hidden', isRecover);
     el.recoverForm.classList.toggle('hidden', !isRecover);
+    if (!state.isEditing) {
+      el.stackTitle.textContent = isRecover
+        ? 'Recuperar meu cadastro'
+        : 'Cadastrar minha rota';
+    }
     if (isRecover) {
       el.recoverPhoneInput.focus();
     }
@@ -1325,9 +1365,11 @@
       loadParticipants();
     });
 
-    el.modalCloseBtn.addEventListener('click', closeProfileModal);
-    el.profileModal.addEventListener('click', (event) => {
-      if (event.target === el.profileModal) closeProfileModal();
+    el.stackBackBtn.addEventListener('click', () => closeProfileModal(false));
+    window.addEventListener('popstate', () => {
+      if (state.modalOpen) {
+        closeProfileModal(true);
+      }
     });
 
     el.modeNewBtn.addEventListener('click', () => switchModalMode('new'));
