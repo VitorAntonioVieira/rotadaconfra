@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rota}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rota_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-rota_da_confra}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rota} -d ${POSTGRES_DB:-rota_da_confra}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:-postgres://rota:rota_secret@db:5432/rota_da_confra}
+      ACCESS_CODE: ${ACCESS_CODE:-confra2026}
+      SPS_OFFICE_LABEL: ${SPS_OFFICE_LABEL:-Escritório SPS (Jardim Limoeiro, São José dos Campos - SP)}
+      SPS_OFFICE_LAT: ${SPS_OFFICE_LAT:--23.2370}
+      SPS_OFFICE_LNG: ${SPS_OFFICE_LNG:--45.9087}
+
+volumes:
+  postgres_data:
